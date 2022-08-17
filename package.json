@@ -1,7 +1,7 @@
 {
 	"name": "preact",
 	"amdName": "preact",
-	"version": "10.8.2",
+	"version": "10.10.3",
 	"private": false,
 	"description": "Fast 3kb React-compatible Virtual DOM library.",
 	"main": "dist/preact.js",
@@ -270,7 +270,7 @@
 		"cross-env": "^7.0.2",
 		"diff": "^5.0.0",
 		"errorstacks": "^2.4.0",
-		"esbuild": "^0.14.25",
+		"esbuild": "^0.14.50",
 		"eslint": "5.15.1",
 		"eslint-config-developit": "^1.1.1",
 		"eslint-config-prettier": "^6.5.0",

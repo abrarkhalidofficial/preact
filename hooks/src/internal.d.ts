@@ -67,6 +67,7 @@ export interface MemoHookState {
 }
 
 export interface ReducerHookState {
+	_nextValue?: any;
 	_value?: any;
 	_component?: Component;
 	_reducer?: Reducer<any, any>;
