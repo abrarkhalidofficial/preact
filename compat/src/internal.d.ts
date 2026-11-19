@@ -1,7 +1,8 @@
+import { Ref, ComponentChild } from '../..';
 import {
 	Component as PreactComponent,
 	VNode as PreactVNode,
-	FunctionComponent as PreactFunctionComponent
+	FunctionalComponent as PreactFunctionalComponent
 } from '../../src/internal';
 import { SuspenseProps } from './suspense';
 
@@ -12,22 +13,13 @@ export { PreactElement } from '../../src/internal';
 export interface Component<P = {}, S = {}> extends PreactComponent<P, S> {
 	isReactComponent?: object;
 	isPureReactComponent?: true;
-	_patchedLifecycles?: true;
 
-	// Suspense internal properties
-	_childDidSuspend?(error: Promise<void>, suspendingVNode: VNode): void;
-	_suspended: (vnode: VNode) => (unsuspend: () => void) => void;
-	_onResolve?(): void;
-
-	// Portal internal properties
-	_temp: any;
-	_container: PreactElement;
+	_childDidSuspend?(error: Promise<void>): void;
 }
 
-export interface FunctionComponent<P = {}> extends PreactFunctionComponent<P> {
+export interface FunctionalComponent<P = {}> extends PreactFunctionalComponent<P> {
 	shouldComponentUpdate?(nextProps: Readonly<P>): boolean;
 	_forwarded?: boolean;
-	_patchedLifecycles?: true;
 }
 
 export interface VNode<T = any> extends PreactVNode<T> {
@@ -35,13 +27,15 @@ export interface VNode<T = any> extends PreactVNode<T> {
 	preactCompatNormalized?: boolean;
 }
 
-export interface SuspenseState {
-	_suspended?: null | VNode<any>;
+export interface ForwardFn<P = {}, T = any> {
+	(props: P, ref: Ref<T>): ComponentChild;
+	displayName?: string;
 }
 
-export interface SuspenseComponent
-	extends PreactComponent<SuspenseProps, SuspenseState> {
-	_pendingSuspensionCount: number;
-	_suspenders: Component[];
-	_detachOnNextRender: null | VNode<any>;
+export interface SuspenseState {
+	_parkedChildren: VNode<any>[];
+}
+
+export interface SuspenseComponent extends PreactComponent<SuspenseProps, SuspenseState> {
+	_suspensions: Array<Promise<any>>;
 }

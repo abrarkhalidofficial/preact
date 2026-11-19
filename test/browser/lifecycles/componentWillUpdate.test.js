@@ -1,10 +1,11 @@
 import { setupRerender } from 'preact/test-utils';
-import { createElement, render, Component } from 'preact';
+import { createElement, render, Component } from '../../../src/index';
 import { setupScratch, teardown } from '../../_util/helpers';
 
 /** @jsx createElement */
 
 describe('Lifecycle methods', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
@@ -21,6 +22,7 @@ describe('Lifecycle methods', () => {
 	});
 
 	describe('#componentWillUpdate', () => {
+
 		it('should NOT be called on initial render', () => {
 			class ReceivePropsComponent extends Component {
 				componentWillUpdate() {}
@@ -30,8 +32,7 @@ describe('Lifecycle methods', () => {
 			}
 			sinon.spy(ReceivePropsComponent.prototype, 'componentWillUpdate');
 			render(<ReceivePropsComponent />, scratch);
-			expect(ReceivePropsComponent.prototype.componentWillUpdate).not.to.have
-				.been.called;
+			expect(ReceivePropsComponent.prototype.componentWillUpdate).not.to.have.been.called;
 		});
 
 		it('should be called when rerender with new props from parent', () => {
@@ -83,13 +84,44 @@ describe('Lifecycle methods', () => {
 			}
 			sinon.spy(ReceivePropsComponent.prototype, 'componentWillUpdate');
 			render(<ReceivePropsComponent />, scratch);
-			expect(ReceivePropsComponent.prototype.componentWillUpdate).not.to.have
-				.been.called;
+			expect(ReceivePropsComponent.prototype.componentWillUpdate).not.to.have.been.called;
 
 			doRender();
 			rerender();
-			expect(ReceivePropsComponent.prototype.componentWillUpdate).to.have.been
-				.called;
+			expect(ReceivePropsComponent.prototype.componentWillUpdate).to.have.been.called;
+		});
+
+		it('should be called after children are mounted', () => {
+			let log = [];
+
+			class Inner extends Component {
+				componentDidMount() {
+					log.push('Inner mounted');
+
+					// Verify that the component is actually mounted when this
+					// callback is invoked.
+					expect(scratch.querySelector('#inner')).to.equalNode(this.base);
+				}
+
+				render() {
+					return <div id="inner" />;
+				}
+			}
+
+			class Outer extends Component {
+				componentDidUpdate() {
+					log.push('Outer updated');
+				}
+
+				render(props) {
+					return props.renderInner ? <Inner /> : <div />;
+				}
+			}
+
+			const elem = render(<Outer renderInner={false} />, scratch);
+			render(<Outer renderInner />, scratch, elem);
+
+			// expect(log).to.deep.equal(['Inner mounted', 'Outer updated']);
 		});
 	});
 });

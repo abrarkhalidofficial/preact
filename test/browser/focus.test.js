@@ -1,93 +1,21 @@
 import { setupRerender } from 'preact/test-utils';
-import { createElement, render, Component, Fragment, hydrate } from 'preact';
+import { createElement as h, render, Component, Fragment, hydrate } from '../../src/index';
 import { setupScratch, teardown } from '../_util/helpers';
 import { div, span, input as inputStr, h1, h2 } from '../_util/dom';
-
-/** @jsx createElement */
 /* eslint-disable react/jsx-boolean-value */
 
+/** @jsx h */
 describe('focus', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
 	/** @type {() => void} */
 	let rerender;
 
-	/** @type {() => void} */
-	let prepend, append, shift, pop;
-
-	/** @type {() => void} */
-	let getDynamicListHtml;
-
-	class DynamicList extends Component {
-		constructor(props) {
-			super(props);
-			this.state = {
-				before: props.initialBefore || [],
-				after: props.initialAfter || []
-			};
-
-			prepend = () => {
-				const before = this.state.before;
-				const newValue = before[0] ? before[0] - 1 : 1;
-				this.setState({
-					before: [newValue, ...before]
-				});
-			};
-
-			append = () => {
-				const after = this.state.after;
-				const lastValue = after[after.length - 1];
-				const newValue = lastValue ? lastValue + 1 : 2;
-				this.setState({
-					after: [...after, newValue]
-				});
-			};
-
-			shift = () => {
-				this.setState({
-					before: this.state.before.slice(1)
-				});
-			};
-
-			pop = () => {
-				this.setState({
-					after: this.state.after.slice(0, -1)
-				});
-			};
-
-			const liHtml = this.props.as == Input ? inputStr : span;
-			getDynamicListHtml = () =>
-				div([
-					...this.state.before.map(liHtml),
-					'<input id="input-0" type="text">',
-					...this.state.after.map(liHtml)
-				]);
-		}
-
-		render(props, state) {
-			const ListComponent = props.as || ListItem;
-			return (
-				<div>
-					{state.before.map(value => (
-						<ListComponent key={props.unkeyed ? undefined : value}>
-							{value}
-						</ListComponent>
-					))}
-					<InputWithId id="0" />
-					{state.after.map(value => (
-						<ListComponent key={props.unkeyed ? undefined : value}>
-							{value}
-						</ListComponent>
-					))}
-				</div>
-			);
-		}
-	}
-
 	const List = ({ children }) => <div>{children}</div>;
 	const ListItem = ({ children }) => <span>{children}</span>;
-	const InputWithId = ({ id }) => <input id={`input-${id}`} type="text" />;
+	const InputWithId = ({ i }) => <input id={`input-${i}`} type="text" />;
 	const Input = () => <input type="text" />;
 
 	function focusInput() {
@@ -106,7 +34,6 @@ describe('focus', () => {
 	function focusInputById() {
 		if (!scratch) return;
 
-		/** @type {HTMLInputElement} */
 		const input = scratch.querySelector('#input-0');
 		input.value = 'a word';
 		input.focus();
@@ -121,12 +48,13 @@ describe('focus', () => {
 	 * Validate an input tag has maintained focus
 	 * @param {HTMLInputElement} input The input to validate
 	 * @param {string} [message] Message to show if the activeElement is not
-	 * equal to the `input` parameter
+	 * eqaul to the `input` parameter
 	 */
 	function validateFocus(input, message) {
 		expect(document.activeElement).to.equalNode(input, message);
 		expect(input.selectionStart).to.equal(2);
 		expect(input.selectionEnd).to.equal(5);
+
 	}
 
 	/**
@@ -138,7 +66,7 @@ describe('focus', () => {
 			...before.map(i => span(i)),
 			inputStr(),
 			...after.map(i => span(i))
-		]);
+		].join(''));
 	}
 
 	beforeEach(() => {
@@ -151,24 +79,22 @@ describe('focus', () => {
 	});
 
 	it.skip('should maintain focus when swapping elements', () => {
-		render(
+		render((
 			<List>
 				<Input />
 				<ListItem>fooo</ListItem>
-			</List>,
-			scratch
-		);
+			</List>
+		), scratch);
 
 		const input = focusInput();
 		expect(scratch.innerHTML).to.equal(getListHtml([], ['fooo']));
 
-		render(
+		render((
 			<List>
 				<ListItem>fooo</ListItem>
 				<Input />
-			</List>,
-			scratch
-		);
+			</List>
+		), scratch);
 		validateFocus(input);
 		expect(scratch.innerHTML).to.equal(getListHtml(['fooo'], []));
 	});
@@ -177,9 +103,9 @@ describe('focus', () => {
 		function App({ showFirst, showLast }) {
 			return (
 				<List>
-					{showFirst ? <ListItem>1</ListItem> : null}
+					{ showFirst ? <ListItem>1</ListItem> : null }
 					<Input />
-					{showLast ? <ListItem>2</ListItem> : null}
+					{ showLast ? <ListItem>2</ListItem> : null }
 				</List>
 			);
 		}
@@ -208,230 +134,266 @@ describe('focus', () => {
 	});
 
 	it('should maintain focus when adding children around input', () => {
-		render(<DynamicList />, scratch);
+		render((
+			<List>
+				<Input />
+			</List>
+		), scratch);
 
 		let input = focusInput();
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([], []));
 
-		prepend();
-		rerender();
+		render((
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+			</List>
+		), scratch);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], []));
 		validateFocus(input, 'insert sibling before');
 
-		append();
-		rerender();
+		render((
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+			</List>
+		), scratch);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], [2]));
 		validateFocus(input, 'insert sibling after');
 
-		append();
-		rerender();
+		render((
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+				<ListItem key="3">3</ListItem>
+			</List>
+		), scratch);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], [2, 3]));
 		validateFocus(input, 'insert sibling after again');
 
-		prepend();
-		rerender();
+		render((
+			<List>
+				<ListItem key="0">0</ListItem>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+				<ListItem key="3">3</ListItem>
+			</List>
+		), scratch);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-		validateFocus(input, 'insert sibling before again');
-	});
-
-	it('should maintain focus when adding children around input (unkeyed)', () => {
-		// Related preactjs/preact#2446
-
-		render(<DynamicList unkeyed />, scratch);
-
-		let input = focusInput();
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-
-		prepend();
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-		validateFocus(input, 'insert sibling before');
-
-		append();
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-		validateFocus(input, 'insert sibling after');
-
-		append();
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-		validateFocus(input, 'insert sibling after again');
-
-		prepend();
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([0, 1], [2, 3]));
 		validateFocus(input, 'insert sibling before again');
 	});
 
 	it('should maintain focus when conditional elements around input', () => {
-		render(
+		render((
 			<List>
 				<ListItem>0</ListItem>
 				<ListItem>1</ListItem>
 				<Input />
 				<ListItem>2</ListItem>
 				<ListItem>3</ListItem>
-			</List>,
-			scratch
-		);
+			</List>
+		), scratch);
 
 		let input = focusInput();
 		expect(scratch.innerHTML).to.equal(getListHtml([0, 1], [2, 3]));
 
-		render(
+		render((
 			<List>
 				{false && <ListItem>0</ListItem>}
 				<ListItem>1</ListItem>
 				<Input />
 				<ListItem>2</ListItem>
 				<ListItem>3</ListItem>
-			</List>,
-			scratch
-		);
+			</List>
+		), scratch);
 
 		expect(scratch.innerHTML).to.equal(getListHtml([1], [2, 3]));
 		validateFocus(input, 'remove sibling before');
 
-		render(
+		render((
 			<List>
 				{false && <ListItem>0</ListItem>}
 				<ListItem>1</ListItem>
 				<Input />
 				<ListItem>2</ListItem>
 				{false && <ListItem>3</ListItem>}
-			</List>,
-			scratch
-		);
+			</List>
+		), scratch);
 
 		expect(scratch.innerHTML).to.equal(getListHtml([1], [2]));
 		validateFocus(input, 'remove sibling after');
 
-		render(
+		render((
 			<List>
 				{false && <ListItem>0</ListItem>}
 				<ListItem>1</ListItem>
 				<Input />
 				{false && <ListItem>2</ListItem>}
 				{false && <ListItem>3</ListItem>}
-			</List>,
-			scratch
-		);
+			</List>
+		), scratch);
 
 		expect(scratch.innerHTML).to.equal(getListHtml([1], []));
 		validateFocus(input, 'remove sibling after 2');
 
-		render(
+		render((
 			<List>
 				{false && <ListItem>0</ListItem>}
 				{false && <ListItem>1</ListItem>}
 				<Input />
 				{false && <ListItem>2</ListItem>}
 				{false && <ListItem>3</ListItem>}
-			</List>,
-			scratch
-		);
+			</List>
+		), scratch);
 
 		expect(scratch.innerHTML).to.equal(getListHtml([], []));
 		validateFocus(input, 'remove sibling before 2');
 	});
 
 	it('should maintain focus when removing elements around input', () => {
-		render(
-			<DynamicList initialBefore={[0, 1]} initialAfter={[2, 3]} />,
-			scratch
-		);
+		render((
+			<List>
+				<ListItem key="0">0</ListItem>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+				<ListItem key="3">3</ListItem>
+			</List>
+		), scratch);
 
 		let input = focusInput();
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([0, 1], [2, 3]));
 
-		shift();
-		rerender();
+		render((
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+				<ListItem key="3">3</ListItem>
+			</List>
+		), scratch);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], [2, 3]));
 		validateFocus(input, 'remove sibling before');
 
-		pop();
-		rerender();
+		render((
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+			</List>
+		), scratch);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], [2]));
 		validateFocus(input, 'remove sibling after');
 
-		pop();
-		rerender();
+		render((
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+			</List>
+		), scratch);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], []));
 		validateFocus(input, 'remove sibling after 2');
 
-		shift();
-		rerender();
+		render((
+			<List>
+				<Input />
+			</List>
+		), scratch);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([], []));
 		validateFocus(input, 'remove sibling before 2');
 	});
 
 	it('should maintain focus when adding input next to the current input', () => {
-		render(<DynamicList as={Input} />, scratch);
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render((
+			<List>
+				<InputWithId i={0} />
+			</List>
+		), scratch);
 
 		let input = focusInputById();
-		prepend();
-		rerender();
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render((
+			<List>
+				<Input key="1" />
+				<InputWithId i={0} />
+			</List>
+		), scratch);
 		validateFocus(input, 'add input before');
 
 		input = focusInputById();
-		append();
-		rerender();
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render((
+			<List>
+				<Input key="1" />
+				<InputWithId i={0} />
+				<Input key="2" />
+			</List>
+		), scratch);
 		validateFocus(input, 'add input after');
 
 		input = focusInputById();
-		prepend();
-		rerender();
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render((
+			<List>
+				<Input key="0" />
+				<Input key="1" />
+				<InputWithId i={0} />
+				<Input key="2" />
+			</List>
+		), scratch);
 		validateFocus(input, 'add input first place');
 
 		input = focusInputById();
-		prepend();
-		rerender();
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render((
+			<List>
+				<Input key="-1" />
+				<Input key="0" />
+				<Input key="1" />
+				<InputWithId i={0} />
+				<Input key="2" />
+			</List>
+		), scratch);
 		validateFocus(input, 'add input before');
 	});
 
 	it('should maintain focus when hydrating', () => {
-		const html = div([span('1'), span('2'), span('3'), inputStr()]);
+		const html = div([
+			span('1'),
+			span('2'),
+			span('3'),
+			inputStr()
+		].join(''));
 
 		scratch.innerHTML = html;
 		const input = focusInput();
 
-		hydrate(
+		hydrate((
 			<List>
 				<ListItem>1</ListItem>
 				<ListItem>2</ListItem>
 				<ListItem>3</ListItem>
 				<Input />
-			</List>,
-			scratch
-		);
+			</List>
+		), scratch);
 
 		expect(scratch.innerHTML).to.equal(html);
 		validateFocus(input);
 	});
 
 	it('should keep focus in Fragments', () => {
+
 		/** @type {HTMLInputElement} */
 		let input;
 
@@ -456,7 +418,7 @@ describe('focus', () => {
 									Hello World
 									<h2>yo</h2>
 								</Fragment>
-								<input type="text" ref={i => (input = i)} />
+								<input type="text" ref={i => input = i} />
 							</Fragment>
 						) : (
 							<Fragment>
@@ -465,7 +427,7 @@ describe('focus', () => {
 									<h2>yo</h2>
 								</Fragment>
 								foobar
-								<input type="text" ref={i => (input = i)} />
+								<input type="text" ref={i => input = i} />
 							</Fragment>
 						)}
 					</div>
@@ -481,13 +443,18 @@ describe('focus', () => {
 		expect(document.activeElement).to.equalNode(input, 'Before rerender');
 		rerender();
 
-		expect(scratch.innerHTML).to.equal(
-			div([h1('Heading'), 'Hello World', h2('yo'), 'foobar', inputStr()])
-		);
+		expect(scratch.innerHTML).to.equal(div([
+			h1('Heading'),
+			'Hello World',
+			h2('yo'),
+			'foobar',
+			inputStr()
+		].join('')));
 		expect(document.activeElement).to.equalNode(input, 'After rerender');
 	});
 
 	it('should keep text selection', () => {
+
 		/** @type {HTMLInputElement} */
 		let input;
 
@@ -512,7 +479,7 @@ describe('focus', () => {
 									Hello World
 									<h2>yo</h2>
 								</Fragment>
-								<input type="text" ref={i => (input = i)} value="foobar" />
+								<input type="text" ref={i => input = i} value="foobar" />
 							</Fragment>
 						) : (
 							<Fragment>
@@ -521,7 +488,7 @@ describe('focus', () => {
 									<h2>yo</h2>
 								</Fragment>
 								foobar
-								<input type="text" ref={i => (input = i)} value="foobar" />
+								<input type="text" ref={i => input = i} value="foobar" />
 							</Fragment>
 						)}
 					</div>
@@ -538,9 +505,13 @@ describe('focus', () => {
 		expect(document.activeElement).to.equalNode(input, 'Before rerender');
 		rerender();
 
-		expect(scratch.innerHTML).to.equal(
-			div([h1('Heading'), 'Hello World', h2('yo'), 'foobar', inputStr()])
-		);
+		expect(scratch.innerHTML).to.equal(div([
+			h1('Heading'),
+			'Hello World',
+			h2('yo'),
+			'foobar',
+			inputStr()
+		].join('')));
 		expect(input.selectionStart).to.equal(2);
 		expect(input.selectionEnd).to.equal(5);
 		expect(document.activeElement).to.equalNode(input, 'After rerender');

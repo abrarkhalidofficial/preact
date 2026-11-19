@@ -1,6 +1,7 @@
 import { initDebug } from './debug';
-import 'preact/devtools';
+import { initDevTools } from './devtools';
 
-initDebug();
-
-export { resetPropWarnings } from './check-props';
+if (process.env.NODE_ENV==='development') {
+	initDebug();
+	initDevTools();
+}

@@ -1,10 +1,12 @@
-import { createElement, render } from 'preact';
+import { createElement as h, render } from 'preact';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
-import { useCallback } from 'preact/hooks';
+import { useCallback } from '../../src';
 
-/** @jsx createElement */
+/** @jsx h */
+
 
 describe('useCallback', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
@@ -15,6 +17,7 @@ describe('useCallback', () => {
 	afterEach(() => {
 		teardown(scratch);
 	});
+
 
 	it('only recomputes the callback when inputs change', () => {
 		const callbacks = [];
@@ -38,4 +41,5 @@ describe('useCallback', () => {
 		expect(callbacks[2]).to.equal(callbacks[3]);
 		expect(callbacks[2]()).to.equal(3);
 	});
+
 });

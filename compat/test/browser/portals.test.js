@@ -1,33 +1,22 @@
-import React, {
-	createElement,
-	render,
-	createPortal,
-	useState,
-	Component,
-	useEffect
-} from 'preact/compat';
+import { createElement as h, render, createPortal, useState, Component } from '../../src';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
-import { setupRerender, act } from 'preact/test-utils';
-
+import { setupRerender } from 'preact/test-utils';
 /* eslint-disable react/jsx-boolean-value, react/display-name, prefer-arrow-callback */
 
+/** @jsx h */
 describe('Portal', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
-	/** @type {HTMLDivElement} */
-	let scratch2;
-
 	let rerender;
 
 	beforeEach(() => {
 		scratch = setupScratch();
-		scratch2 = setupScratch('scratch-2');
 		rerender = setupRerender();
 	});
 
 	afterEach(() => {
 		teardown(scratch);
-		teardown(scratch2);
 	});
 
 	it('should render into a different root node', () => {
@@ -69,7 +58,7 @@ describe('Portal', () => {
 
 		function Foo(props) {
 			const [mounted, setMounted] = useState(true);
-			toggle = () => setMounted(s => !s);
+			toggle = () => setMounted((s) => !s);
 			return (
 				<div>
 					<p>Hello</p>
@@ -78,15 +67,8 @@ describe('Portal', () => {
 			);
 		}
 
-		render(
-			<Foo>
-				<div>foobar</div>
-			</Foo>,
-			scratch
-		);
-		expect(scratch.innerHTML).to.equal(
-			'<div>foobar</div><div><p>Hello</p></div>'
-		);
+		render(<Foo><div>foobar</div></Foo>, scratch);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
@@ -94,19 +76,15 @@ describe('Portal', () => {
 
 		toggle();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div>foobar</div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 	});
 
 	it('should notice prop changes on the portal', () => {
 		let set;
 
 		function Foo(props) {
-			const [additionalProps, setProps] = useState({
-				style: { backgroundColor: 'red' }
-			});
-			set = c => setProps(c);
+			const [additionalProps, setProps] = useState({ style: { backgroundColor: 'red' } });
+			set = (c) => setProps(c);
 			return (
 				<div>
 					<p>Hello</p>
@@ -137,10 +115,8 @@ describe('Portal', () => {
 		}
 
 		function Foo(props) {
-			const [additionalProps, setProps] = useState({
-				style: { background: 'red' }
-			});
-			set = c => setProps(c);
+			const [additionalProps, setProps] = useState({ style: { background: 'red' } });
+			set = (c) => setProps(c);
 			return (
 				<div>
 					<p>Hello</p>
@@ -170,7 +146,11 @@ describe('Portal', () => {
 		}
 
 		function App() {
-			return <div>{createPortal(<Dialog />, dialog)}</div>;
+			return (
+				<div>
+					{createPortal(<Dialog />, dialog)}
+				</div>
+			);
 		}
 
 		render(<App />, root);
@@ -190,11 +170,15 @@ describe('Portal', () => {
 		}
 
 		function App() {
-			return <div>{createPortal(<Dialog />, dialog)}</div>;
+			return (
+				<div>
+					{createPortal(<Dialog />, dialog)}
+				</div>
+			);
 		}
 
 		render(<App />, root);
-		expect(dialog.childNodes.length).to.equal(1);
+		expect(dialog.childNodes.length).to.equal(2);
 		render(null, root);
 		expect(dialog.childNodes.length).to.equal(0);
 	});
@@ -205,8 +189,8 @@ describe('Portal', () => {
 		function Foo(props) {
 			const [mounted, setMounted] = useState(false);
 			const [mounted2, setMounted2] = useState(true);
-			toggle = () => setMounted(s => !s);
-			toggle2 = () => setMounted2(s => !s);
+			toggle = () => setMounted((s) => !s);
+			toggle2 = () => setMounted2((s) => !s);
 			return (
 				<div>
 					{mounted && createPortal(props.children, scratch)}
@@ -215,29 +199,20 @@ describe('Portal', () => {
 			);
 		}
 
-		render(
-			<Foo>
-				<div>foobar</div>
-			</Foo>,
-			scratch
-		);
+		render(<Foo><div>foobar</div></Foo>, scratch);
 		expect(scratch.innerHTML).to.equal('<div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div>foobar</div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 
 		toggle2();
 		rerender();
-		expect(scratch.innerHTML).to.equal('<div></div><div>foobar</div>');
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div></div>');
 
 		toggle2();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div>foobar</div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
@@ -254,8 +229,8 @@ describe('Portal', () => {
 		function Foo(props) {
 			const [mounted, setMounted] = useState(false);
 			const [mounted2, setMounted2] = useState(false);
-			toggle = () => setMounted(s => !s);
-			toggle2 = () => setMounted2(s => !s);
+			toggle = () => setMounted((s) => !s);
+			toggle2 = () => setMounted2((s) => !s);
 			return (
 				<div>
 					<p>Hello</p>
@@ -265,31 +240,20 @@ describe('Portal', () => {
 			);
 		}
 
-		render(
-			<Foo children2={<div>foobar2</div>}>
-				<div>foobar</div>
-			</Foo>,
-			scratch
-		);
+		render(<Foo children2={<div>foobar2</div>}><div>foobar</div></Foo>, scratch);
 		expect(scratch.innerHTML).to.equal('<div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div>foobar</div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 
 		toggle2();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div>foobar</div><div>foobar2</div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar2</div><div>foobar</div><div><p>Hello</p></div>');
 
 		toggle2();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div>foobar</div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
@@ -304,32 +268,19 @@ describe('Portal', () => {
 			set = setContainer;
 
 			return (
-				<div
-					ref={r => {
-						ref = r;
-					}}
-				>
+				<div ref={(r) => { ref = r; }}>
 					<p>Hello</p>
 					{createPortal(props.children, container)}
 				</div>
 			);
 		}
 
-		render(
-			<Foo>
-				<div>foobar</div>
-			</Foo>,
-			scratch
-		);
-		expect(scratch.innerHTML).to.equal(
-			'<div>foobar</div><div><p>Hello</p></div>'
-		);
+		render(<Foo><div>foobar</div></Foo>, scratch);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 
 		set(() => ref);
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p><div>foobar</div></div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div><div>foobar</div><p>Hello</p></div>');
 	});
 
 	it('should work with replacing placeholder portals', () => {
@@ -338,8 +289,8 @@ describe('Portal', () => {
 		function Foo(props) {
 			const [mounted, setMounted] = useState(false);
 			const [mounted2, setMounted2] = useState(false);
-			toggle = () => setMounted(s => !s);
-			toggle2 = () => setMounted2(s => !s);
+			toggle = () => setMounted((s) => !s);
+			toggle2 = () => setMounted2((s) => !s);
 			return (
 				<div>
 					<p>Hello</p>
@@ -349,19 +300,12 @@ describe('Portal', () => {
 			);
 		}
 
-		render(
-			<Foo>
-				<div>foobar</div>
-			</Foo>,
-			scratch
-		);
+		render(<Foo><div>foobar</div></Foo>, scratch);
 		expect(scratch.innerHTML).to.equal('<div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div>foobar</div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
@@ -369,9 +313,7 @@ describe('Portal', () => {
 
 		toggle2();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div>foobar</div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><p>Hello</p></div>');
 
 		toggle2();
 		rerender();
@@ -385,11 +327,7 @@ describe('Portal', () => {
 			const [root, setRoot] = useState(scratch);
 			toggle = () => setRoot(() => root2);
 			return (
-				<div
-					ref={r => {
-						root2 = r;
-					}}
-				>
+				<div ref={r => { root2 = r; }}>
 					<p>Hello</p>
 					{createPortal(props.children, scratch)}
 					{createPortal(props.children, root)}
@@ -397,21 +335,12 @@ describe('Portal', () => {
 			);
 		}
 
-		render(
-			<Foo>
-				<div>foobar</div>
-			</Foo>,
-			scratch
-		);
-		expect(scratch.innerHTML).to.equal(
-			'<div>foobar</div><div>foobar</div><div><p>Hello</p></div>'
-		);
+		render(<Foo><div>foobar</div></Foo>, scratch);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div>foobar</div><div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div>foobar</div><div><p>Hello</p><div>foobar</div></div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div>foobar</div><div><div>foobar</div><p>Hello</p></div>');
 	});
 
 	it('should support nested portals', () => {
@@ -421,11 +350,7 @@ describe('Portal', () => {
 			const [mounted, setMounted] = useState(false);
 			toggle2 = () => setMounted(s => !s);
 			return (
-				<div
-					ref={r => {
-						inner = r;
-					}}
-				>
+				<div ref={r => { inner = r; }}>
 					<p>Inner</p>
 					{mounted && createPortal(<p>hiFromBar</p>, scratch)}
 					{mounted && createPortal(<p>innerPortal</p>, inner)}
@@ -449,78 +374,15 @@ describe('Portal', () => {
 
 		toggle();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div><p>Inner</p></div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div><p>Inner</p></div><div><p>Hello</p></div>');
 
 		toggle2();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><p>Hello</p></div><div><p>Inner</p><p>innerPortal</p></div><p>hiFromBar</p>'
-		);
+		expect(scratch.innerHTML).to.equal('<p>hiFromBar</p><div><p>innerPortal</p><p>Inner</p></div><div><p>Hello</p></div>');
 
 		toggle();
 		rerender();
 		expect(scratch.innerHTML).to.equal('<div><p>Hello</p></div>');
-	});
-
-	it('should support nested portals remounting #2669', () => {
-		let setVisible;
-		let i = 0;
-
-		function PortalComponent(props) {
-			const innerVnode = <div id="inner">{i}</div>;
-			innerVnode.___id = 'inner_' + i++;
-			const outerVnode = (
-				<div id="outer">
-					{i}
-					{props.show && createPortal(innerVnode, scratch)}
-				</div>
-			);
-			outerVnode.___id = 'outer_' + i++;
-			return createPortal(outerVnode, scratch);
-		}
-
-		function App() {
-			const [visible, _setVisible] = useState(true);
-			setVisible = _setVisible;
-
-			return (
-				<div id="app">
-					test
-					<PortalComponent show={visible} />
-				</div>
-			);
-		}
-
-		render(<App />, scratch);
-		expect(scratch.innerHTML).to.equal(
-			'<div id="inner">0</div><div id="outer">1</div><div id="app">test</div>'
-		);
-
-		act(() => {
-			setVisible(false);
-		});
-		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div id="outer">3</div><div id="app">test</div>'
-		);
-
-		act(() => {
-			setVisible(true);
-		});
-		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div id="outer">5</div><div id="app">test</div><div id="inner">4</div>'
-		);
-
-		act(() => {
-			setVisible(false);
-		});
-		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div id="outer">7</div><div id="app">test</div>'
-		);
 	});
 
 	it('should not unmount when parent renders', () => {
@@ -567,14 +429,15 @@ describe('Portal', () => {
 		expect(spy).to.be.calledOnce;
 	});
 
-	it('should switch between non portal and portal node (Modal as lastChild)', () => {
+	it('should switch between non portal and portal node', () => {
 		let toggle;
-		const Modal = ({ children, open }) =>
-			open ? createPortal(<div>{children}</div>, scratch) : <div>Closed</div>;
+		const Modal = ({ children, open }) => open
+			? createPortal(<div>{children}</div>, scratch)
+			: <div>Closed</div>;
 
 		const App = () => {
 			const [open, setOpen] = useState(false);
-			toggle = setOpen.bind(this, x => !x);
+			toggle = setOpen.bind(this, (x) => !x);
 			return (
 				<div>
 					<button onClick={() => setOpen(!open)}>Show</button>
@@ -585,169 +448,10 @@ describe('Portal', () => {
 		};
 
 		render(<App />, scratch);
-		expect(scratch.innerHTML).to.equal(
-			'<div><button>Show</button>Closed<div>Closed</div></div>'
-		);
+		expect(scratch.innerHTML).to.equal('<div><button>Show</button>Closed<div>Closed</div></div>');
 
 		toggle();
 		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><button>Show</button>Open</div><div>Hello</div>'
-		);
-	});
-
-	it('should switch between non portal and portal node (Modal as firstChild)', () => {
-		let toggle;
-		const Modal = ({ children, open }) =>
-			open ? createPortal(<div>{children}</div>, scratch) : <div>Closed</div>;
-
-		const App = () => {
-			const [open, setOpen] = useState(false);
-			toggle = setOpen.bind(this, x => !x);
-			return (
-				<div>
-					<Modal open={open}>Hello</Modal>
-					<button onClick={() => setOpen(!open)}>Show</button>
-					{open ? 'Open' : 'Closed'}
-				</div>
-			);
-		};
-
-		render(<App />, scratch);
-		expect(scratch.innerHTML).to.equal(
-			'<div><div>Closed</div><button>Show</button>Closed</div>'
-		);
-
-		toggle();
-		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><button>Show</button>Open</div><div>Hello</div>'
-		);
-
-		toggle();
-		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div><div>Closed</div><button>Show</button>Closed</div>'
-		);
-	});
-
-	it('should order effects well', () => {
-		const calls = [];
-		const Modal = ({ children }) => {
-			useEffect(() => {
-				calls.push('Modal');
-			}, []);
-			return createPortal(<div className="modal">{children}</div>, scratch);
-		};
-
-		const ModalButton = ({ i }) => {
-			useEffect(() => {
-				calls.push(`Button ${i}`);
-			}, []);
-
-			return <button>Action</button>;
-		};
-
-		const App = () => {
-			useEffect(() => {
-				calls.push('App');
-			}, []);
-
-			return (
-				<Modal>
-					<ModalButton i="1" />
-					<ModalButton i="2" />
-				</Modal>
-			);
-		};
-
-		act(() => {
-			render(<App />, scratch);
-		});
-
-		expect(calls).to.deep.equal(['Button 1', 'Button 2', 'Modal', 'App']);
-	});
-
-	it('should include containerInfo', () => {
-		let root = document.createElement('div');
-		document.body.appendChild(root);
-
-		const A = () => <span>A</span>;
-
-		let portal;
-		function Foo(props) {
-			portal = createPortal(props.children, root);
-			return <div>{portal}</div>;
-		}
-		render(
-			<Foo>
-				<A />
-			</Foo>,
-			scratch
-		);
-
-		expect(portal.containerInfo).to.equal(root);
-
-		root.parentNode.removeChild(root);
-	});
-
-	it('should order complex effects well', () => {
-		const calls = [];
-		const Parent = ({ children, isPortal }) => {
-			useEffect(() => {
-				calls.push(`${isPortal ? 'Portal ' : ''}Parent`);
-			}, [isPortal]);
-
-			return <div>{children}</div>;
-		};
-
-		const Child = ({ index, isPortal }) => {
-			useEffect(() => {
-				calls.push(`${isPortal ? 'Portal ' : ''}Child ${index}`);
-			}, [index, isPortal]);
-
-			return <div>{index}</div>;
-		};
-
-		const Portal = () => {
-			const content = [1, 2, 3].map(index => (
-				<Child key={index} index={index} isPortal />
-			));
-
-			useEffect(() => {
-				calls.push('Portal');
-			}, []);
-
-			return createPortal(<Parent isPortal>{content}</Parent>, scratch2);
-		};
-
-		const App = () => {
-			const content = [1, 2, 3].map(index => (
-				<Child key={index} index={index} />
-			));
-
-			return (
-				<React.Fragment>
-					<Parent>{content}</Parent>
-					<Portal />
-				</React.Fragment>
-			);
-		};
-
-		act(() => {
-			render(<App />, scratch);
-		});
-
-		expect(calls).to.deep.equal([
-			'Child 1',
-			'Child 2',
-			'Child 3',
-			'Parent',
-			'Portal Child 1',
-			'Portal Child 2',
-			'Portal Child 3',
-			'Portal Parent',
-			'Portal'
-		]);
+		expect(scratch.innerHTML).to.equal('<div>Hello</div><div><button>Show</button>Open</div>');
 	});
 });

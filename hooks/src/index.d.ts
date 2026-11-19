@@ -1,6 +1,7 @@
-import { ErrorInfo, PreactContext, Ref as PreactRef } from '../..';
+import { PreactContext, Ref as PreactRef } from "../..";
 
 type Inputs = ReadonlyArray<unknown>;
+
 
 export type StateUpdater<S> = (value: S | ((prevState: S) => S)) => void;
 /**
@@ -9,10 +10,6 @@ export type StateUpdater<S> = (value: S | ((prevState: S) => S)) => void;
  */
 export function useState<S>(initialState: S | (() => S)): [S, StateUpdater<S>];
 
-export function useState<S = undefined>(): [
-	S | undefined,
-	StateUpdater<S | undefined>
-];
 
 export type Reducer<S, A> = (prevState: S, action: A) => S;
 /**
@@ -24,10 +21,7 @@ export type Reducer<S, A> = (prevState: S, action: A) => S;
  * @param reducer Given the current state and an action, returns the new state
  * @param initialState The initial value to store as state
  */
-export function useReducer<S, A>(
-	reducer: Reducer<S, A>,
-	initialState: S
-): [S, (action: A) => void];
+export function useReducer<S, A>(reducer: Reducer<S, A>, initialState: S): [S, (action: A) => void];
 
 /**
  * An alternative to `useState`.
@@ -39,21 +33,11 @@ export function useReducer<S, A>(
  * @param initialArg The initial argument to pass to the `init` function
  * @param init A function that, given the `initialArg`, returns the initial value to store as state
  */
-export function useReducer<S, A, I>(
-	reducer: Reducer<S, A>,
-	initialArg: I,
-	init: (arg: I) => S
-): [S, (action: A) => void];
+export function useReducer<S, A, I>(reducer: Reducer<S, A>, initialArg: I, init: (arg: I) => S): [S, (action: A) => void];
 
-/** @deprecated Use the `Ref` type instead. */
-type PropRef<T> = MutableRef<T>;
-interface Ref<T> {
-	readonly current: T | null;
-}
 
-interface MutableRef<T> {
-	current: T;
-}
+type PropRef<T> = { readonly current?: T; }
+type Ref<T> = { current: T; }
 
 /**
  * `useRef` returns a mutable ref object whose `.current` property is initialized to the passed argument
@@ -61,14 +45,18 @@ interface MutableRef<T> {
  *
  * Note that `useRef()` is useful for more than the `ref` attribute. It’s handy for keeping any mutable
  * value around similar to how you’d use instance fields in classes.
- *
- * @param initialValue the initial value to store in the ref object
  */
-export function useRef<T>(initialValue: T): MutableRef<T>;
-export function useRef<T>(initialValue: T | null): Ref<T>;
-export function useRef<T = undefined>(): MutableRef<T | undefined>;
+export function useRef<T>(initialValue: T): Ref<T>;
 
-type EffectCallback = () => void | (() => void);
+/**
+ * `useRef` without an initial value is the special case handling `ref` props.
+ * If you want a non prop-based, mutable ref, you can explicitly give it an initial value of undefined/null/etc.
+ * You should explicitly set the type parameter for the expected ref value to either a DOM Element like `HTMLInputElement` or a `Component`
+ */
+export function useRef<T = unknown>(): PropRef<T>;
+
+
+type EffectCallback = () => (void | (() => void));
 /**
  * Accepts a function that contains imperative, possibly effectful code.
  * The effects run after browser paint, without blocking it.
@@ -86,11 +74,7 @@ type CreateHandle = () => object;
  * ref.current
  * @param inputs If present, effect will only activate if the values in the list change (using ===).
  */
-export function useImperativeHandle<T, R extends T>(
-	ref: PreactRef<T>,
-	create: () => R,
-	inputs?: Inputs
-): void;
+export function useImperativeHandle<T, R extends T>(ref: PreactRef<T>, create: () => R, inputs?: Inputs): void;
 
 /**
  * Accepts a function that contains imperative, possibly effectful code.
@@ -115,8 +99,7 @@ export function useCallback<T extends Function>(callback: T, inputs: Inputs): T;
  * This optimization helps to avoid expensive calculations on every render.
  * If no array is provided, a new value will be computed whenever a new function instance is passed as the first argument.
  */
-// for `inputs`, allow undefined, but don't make it optional as that is very likely a mistake
-export function useMemo<T>(factory: () => T, inputs: Inputs | undefined): T;
+export function useMemo<T>(factory: () => T, inputs?: Inputs): T;
 
 /**
  * Returns the current context value, as given by the nearest context provider for the given context.
@@ -132,8 +115,4 @@ export function useContext<T>(context: PreactContext<T>): T;
  * @param value Custom hook name or object that is passed to formatter
  * @param formatter Formatter to modify value before sending it to the devtools
  */
-export function useDebugValue<T>(value: T, formatter?: (value: T) => any): void;
-
-export function useErrorBoundary(
-	callback?: (error: any, errorInfo: ErrorInfo) => Promise<void> | void
-): [any, () => void];
+export function useDebugValue<T>(value: T, formatter?: (value: T) => string | number): void;

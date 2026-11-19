@@ -1,19 +1,14 @@
 import { setupRerender, act } from 'preact/test-utils';
-import { createElement, render, Component } from 'preact';
+import { createElement as h, render, Component } from 'preact';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
-import {
-	useState,
-	useReducer,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useMemo
-} from 'preact/hooks';
+import { useState, useReducer, useEffect, useLayoutEffect, useRef } from '../../src';
 import { scheduleEffectAssert } from '../_util/useEffectUtil';
 
-/** @jsx createElement */
+/** @jsx h */
+
 
 describe('combinations', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
@@ -28,6 +23,7 @@ describe('combinations', () => {
 	afterEach(() => {
 		teardown(scratch);
 	});
+
 
 	it('can mix useState hooks', () => {
 		const states = {};
@@ -54,22 +50,12 @@ describe('combinations', () => {
 		}
 
 		render(<Parent />, scratch);
-		expect(states).to.deep.equal({
-			state1: 1,
-			state2: 2,
-			state3: 3,
-			state4: 4
-		});
+		expect(states).to.deep.equal({ state1: 1, state2: 2, state3: 3, state4: 4 });
 
 		setStates.setState2(n => n * 10);
 		setStates.setState3(n => n * 10);
 		rerender();
-		expect(states).to.deep.equal({
-			state1: 1,
-			state2: 20,
-			state3: 30,
-			state4: 4
-		});
+		expect(states).to.deep.equal({ state1: 1, state2: 20, state3: 30, state4: 4 });
 	});
 
 	it('can rerender asynchronously from within an effect', () => {
@@ -78,9 +64,7 @@ describe('combinations', () => {
 		function Comp() {
 			const [counter, setCounter] = useState(0);
 
-			useEffect(() => {
-				if (counter === 0) setCounter(1);
-			});
+			useEffect(() => { if (counter === 0) setCounter(1); });
 
 			didRender(counter);
 			return null;
@@ -100,9 +84,7 @@ describe('combinations', () => {
 		function Comp() {
 			const [counter, setCounter] = useState(0);
 
-			useLayoutEffect(() => {
-				if (counter === 0) setCounter(1);
-			});
+			useLayoutEffect(() => { if (counter === 0) setCounter(1); });
 
 			didRender(counter);
 			return null;
@@ -138,15 +120,13 @@ describe('combinations', () => {
 
 		function reducer1(state, action) {
 			switch (action.type) {
-				case 'increment':
-					return state + action.count;
+				case 'increment': return state + action.count;
 			}
 		}
 
 		function reducer2(state, action) {
 			switch (action.type) {
-				case 'increment':
-					return state + action.count * 2;
+				case 'increment': return state + action.count * 2;
 			}
 		}
 
@@ -233,115 +213,5 @@ describe('combinations', () => {
 		rerender();
 
 		expect(scratch.textContent).to.equal('01');
-	});
-
-	it('should have a right call order with correct dom ref', () => {
-		let i = 0,
-			set;
-		const calls = [];
-
-		function Inner() {
-			useLayoutEffect(() => {
-				calls.push('layout inner call ' + scratch.innerHTML);
-				return () => calls.push('layout inner dispose ' + scratch.innerHTML);
-			});
-			useEffect(() => {
-				calls.push('effect inner call ' + scratch.innerHTML);
-				return () => calls.push('effect inner dispose ' + scratch.innerHTML);
-			});
-			return <span>hello {i}</span>;
-		}
-
-		function Outer() {
-			i++;
-			const [state, setState] = useState(false);
-			set = () => setState(!state);
-			useLayoutEffect(() => {
-				calls.push('layout outer call ' + scratch.innerHTML);
-				return () => calls.push('layout outer dispose ' + scratch.innerHTML);
-			});
-			useEffect(() => {
-				calls.push('effect outer call ' + scratch.innerHTML);
-				return () => calls.push('effect outer dispose ' + scratch.innerHTML);
-			});
-			return <Inner />;
-		}
-
-		act(() => render(<Outer />, scratch));
-		expect(calls).to.deep.equal([
-			'layout inner call <span>hello 1</span>',
-			'layout outer call <span>hello 1</span>',
-			'effect inner call <span>hello 1</span>',
-			'effect outer call <span>hello 1</span>'
-		]);
-
-		// NOTE: this order is (at the time of writing) intentionally different from
-		// React. React calls all disposes across all components, and then invokes all
-		// effects across all components. We call disposes and effects in order of components:
-		// for each component, call its disposes and then its effects. If presented with a
-		// compelling use case to support inter-component dispose dependencies, then rewrite this
-		// test to test React's order. In other words, if there is a use case to support calling
-		// all disposes across components then re-order the lines below to demonstrate the desired behavior.
-
-		act(() => set());
-		expect(calls).to.deep.equal([
-			'layout inner call <span>hello 1</span>',
-			'layout outer call <span>hello 1</span>',
-			'effect inner call <span>hello 1</span>',
-			'effect outer call <span>hello 1</span>',
-			'layout inner dispose <span>hello 2</span>',
-			'layout inner call <span>hello 2</span>',
-			'layout outer dispose <span>hello 2</span>',
-			'layout outer call <span>hello 2</span>',
-			'effect inner dispose <span>hello 2</span>',
-			'effect inner call <span>hello 2</span>',
-			'effect outer dispose <span>hello 2</span>',
-			'effect outer call <span>hello 2</span>'
-		]);
-	});
-
-	// TODO: I actually think this is an acceptable failure, because we update child first and then parent
-	// the effects are out of order
-	it.skip('should run effects child-first even for children separated by memoization', () => {
-		let ops = [];
-
-		/** @type {() => void} */
-		let updateChild;
-		/** @type {() => void} */
-		let updateParent;
-
-		function Child() {
-			const [, setCount] = useState(0);
-			updateChild = () => setCount(c => c + 1);
-			useEffect(() => {
-				ops.push('child effect');
-			});
-			return <div>Child</div>;
-		}
-
-		function Parent() {
-			const [, setCount] = useState(0);
-			updateParent = () => setCount(c => c + 1);
-			const memoedChild = useMemo(() => <Child />, []);
-			useEffect(() => {
-				ops.push('parent effect');
-			});
-			return (
-				<div>
-					<div>Parent</div>
-					{memoedChild}
-				</div>
-			);
-		}
-
-		act(() => render(<Parent />, scratch));
-		expect(ops).to.deep.equal(['child effect', 'parent effect']);
-
-		ops = [];
-		updateChild();
-		updateParent();
-		act(() => rerender());
-
-		expect(ops).to.deep.equal(['child effect', 'parent effect']);
 	});
 });

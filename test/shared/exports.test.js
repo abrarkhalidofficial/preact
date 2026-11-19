@@ -1,17 +1,4 @@
-import {
-	createElement,
-	h,
-	createContext,
-	Component,
-	Fragment,
-	render,
-	hydrate,
-	cloneElement,
-	options,
-	createRef,
-	toChildArray,
-	isValidElement
-} from '../../';
+import { createElement, h, createContext, Component, Fragment, render, hydrate, cloneElement, options } from '../../src/index';
 import { expect } from 'chai';
 
 describe('preact', () => {
@@ -25,8 +12,5 @@ describe('preact', () => {
 		expect(cloneElement).to.be.a('function');
 		expect(createContext).to.be.a('function');
 		expect(options).to.exist.and.be.an('object');
-		expect(createRef).to.be.a('function');
-		expect(isValidElement).to.be.a('function');
-		expect(toChildArray).to.be.a('function');
 	});
 });

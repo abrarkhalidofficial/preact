@@ -1,8 +1,8 @@
 import { setupRerender } from 'preact/test-utils';
-import { createElement, render, Component } from 'preact';
+import { createElement as h, render, Component } from '../../src/index';
 import { setupScratch, teardown } from '../_util/helpers';
 
-/** @jsx createElement */
+/** @jsx h */
 
 describe('Component spec', () => {
 	let scratch, rerender;
@@ -22,10 +22,8 @@ describe('Component spec', () => {
 				constructor(props, context) {
 					super(props, context);
 					expect(props).to.be.deep.equal({
-						fieldA: 1,
-						fieldB: 2,
-						fieldC: 1,
-						fieldD: 2
+						fieldA: 1, fieldB: 2,
+						fieldC: 1, fieldD: 2
 					});
 				}
 				render() {
@@ -55,7 +53,7 @@ describe('Component spec', () => {
 					super(props, context);
 					this.ctor(props, context);
 				}
-				ctor() {}
+				ctor(){}
 				componentWillReceiveProps() {}
 				render() {
 					return <div />;
@@ -72,17 +70,13 @@ describe('Component spec', () => {
 			doRender();
 
 			const PROPS1 = {
-				fieldA: 1,
-				fieldB: 1,
-				fieldC: 1,
-				fieldD: 1
+				fieldA: 1, fieldB: 1,
+				fieldC: 1, fieldD: 1
 			};
 
 			const PROPS2 = {
-				fieldA: 1,
-				fieldB: 2,
-				fieldC: 1,
-				fieldD: 2
+				fieldA: 1, fieldB: 2,
+				fieldC: 1, fieldD: 2
 			};
 
 			expect(proto.ctor).to.have.been.calledWithMatch(PROPS1);
@@ -91,9 +85,7 @@ describe('Component spec', () => {
 			rerender();
 
 			// expect(proto.ctor).to.have.been.calledWith(PROPS2);
-			expect(proto.componentWillReceiveProps).to.have.been.calledWithMatch(
-				PROPS2
-			);
+			expect(proto.componentWillReceiveProps).to.have.been.calledWithMatch(PROPS2);
 			expect(proto.render).to.have.been.calledWithMatch(PROPS2);
 		});
 	});
@@ -113,14 +105,12 @@ describe('Component spec', () => {
 			sinon.spy(ForceUpdateComponent.prototype, 'componentWillUpdate');
 			sinon.spy(ForceUpdateComponent.prototype, 'forceUpdate');
 			render(<ForceUpdateComponent />, scratch);
-			expect(ForceUpdateComponent.prototype.componentWillUpdate).not.to.have
-				.been.called;
+			expect(ForceUpdateComponent.prototype.componentWillUpdate).not.to.have.been.called;
 
 			forceUpdate();
 			rerender();
 
-			expect(ForceUpdateComponent.prototype.componentWillUpdate).to.have.been
-				.called;
+			expect(ForceUpdateComponent.prototype.componentWillUpdate).to.have.been.called;
 			expect(ForceUpdateComponent.prototype.forceUpdate).to.have.been.called;
 		});
 
@@ -142,9 +132,7 @@ describe('Component spec', () => {
 			rerender();
 
 			expect(ForceUpdateComponent.prototype.forceUpdate).to.have.been.called;
-			expect(
-				ForceUpdateComponent.prototype.forceUpdate
-			).to.have.been.calledWith(callback);
+			expect(ForceUpdateComponent.prototype.forceUpdate).to.have.been.calledWith(callback);
 			expect(callback).to.have.been.called;
 		});
 	});

@@ -1,10 +1,11 @@
-import { createElement, render, options } from 'preact';
+import { h, render, options } from 'preact';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
-import { useDebugValue, useState } from 'preact/hooks';
+import { useDebugValue, useState } from '../../src';
 
-/** @jsx createElement */
+/** @jsx h */
 
 describe('useDebugValue', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
@@ -32,7 +33,7 @@ describe('useDebugValue', () => {
 	});
 
 	it('should call options hook with value', () => {
-		let spy = (options.useDebugValue = sinon.spy());
+		let spy = options.useDebugValue = sinon.spy();
 
 		function useFoo() {
 			useDebugValue('foo');
@@ -51,7 +52,7 @@ describe('useDebugValue', () => {
 	});
 
 	it('should apply optional formatter', () => {
-		let spy = (options.useDebugValue = sinon.spy());
+		let spy = options.useDebugValue = sinon.spy();
 
 		function useFoo() {
 			useDebugValue('foo', x => x + 'bar');

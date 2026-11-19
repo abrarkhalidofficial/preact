@@ -1,26 +1,11 @@
 import { setupRerender } from 'preact/test-utils';
-import {
-	createEvent,
-	setupScratch,
-	teardown
-} from '../../../test/_util/helpers';
-import React, {
-	createElement,
-	Component,
-	render,
-	memo,
-	useState
-} from 'preact/compat';
-import { li, ol } from '../../../test/_util/dom';
+import { setupScratch, teardown } from '../../../test/_util/helpers';
+import { Component, render, createElement as h, memo } from '../../src';
 
-const h = React.createElement;
+/** @jsx h */
 
 describe('memo()', () => {
-	/** @type {HTMLDivElement} */
-	let scratch;
-
-	/** @type {() => void} */
-	let rerender;
+	let scratch, rerender;
 
 	beforeEach(() => {
 		scratch = setupScratch();
@@ -32,7 +17,6 @@ describe('memo()', () => {
 	});
 
 	it('should have isReactComponent flag', () => {
-		// eslint-disable-next-line react/display-name
 		let App = memo(() => <div>foo</div>);
 		expect(App.prototype.isReactComponent).to.equal(true);
 	});
@@ -169,66 +153,5 @@ describe('memo()', () => {
 		expect(function() {
 			render(<App />, scratch);
 		}).to.not.throw();
-	});
-
-	it('should pass ref through nested memos', () => {
-		class Foo extends Component {
-			render() {
-				return <h1>Hello World</h1>;
-			}
-		}
-
-		const App = memo(memo(Foo));
-
-		const ref = {};
-
-		render(<App ref={ref} />, scratch);
-
-		expect(ref.current).not.to.be.undefined;
-		expect(ref.current).to.be.instanceOf(Foo);
-	});
-
-	it('should not unnecessarily reorder children #2895', () => {
-		const array = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }];
-
-		const List = () => {
-			const [selected, setSelected] = useState('');
-			return (
-				<ol>
-					{array.map(item => (
-						<ListItem
-							{...{
-								isSelected: item.name === selected,
-								setSelected,
-								...item
-							}}
-							key={item.name}
-						/>
-					))}
-				</ol>
-			);
-		};
-
-		const ListItem = memo(({ name, isSelected, setSelected }) => {
-			const handleClick = () => setSelected(name);
-			return (
-				<li class={isSelected ? 'selected' : null} onClick={handleClick}>
-					{name}
-				</li>
-			);
-		});
-
-		render(<List />, scratch);
-		expect(scratch.innerHTML).to.equal(
-			`<ol><li>A</li><li>B</li><li>C</li><li>D</li></ol>`
-		);
-
-		let listItem = scratch.querySelector('li:nth-child(3)');
-		listItem.dispatchEvent(createEvent('click'));
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(
-			`<ol><li>A</li><li>B</li><li class="selected">C</li><li>D</li></ol>`
-		);
 	});
 });

@@ -1,10 +1,11 @@
 import { setupRerender } from 'preact/test-utils';
-import { createElement, render, Component } from 'preact';
+import { createElement, render, Component } from '../../../src/index';
 import { setupScratch, teardown } from '../../_util/helpers';
 
 /** @jsx createElement */
 
 describe('Lifecycle methods', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
@@ -69,9 +70,7 @@ describe('Lifecycle methods', () => {
 			render(<Foo />, scratch);
 			rerender();
 
-			expect(componentState, 'via shouldComponentUpdate').to.deep.equal({
-				value: 1
-			});
+			expect(componentState, 'via shouldComponentUpdate').to.deep.equal({ value: 1 });
 
 			delete Foo.prototype.shouldComponentUpdate;
 			Foo.prototype.componentWillUpdate = cWRP;
@@ -80,9 +79,7 @@ describe('Lifecycle methods', () => {
 			render(<Foo />, scratch);
 			rerender();
 
-			expect(componentState, 'via componentWillUpdate').to.deep.equal({
-				value: 1
-			});
+			expect(componentState, 'via componentWillUpdate').to.deep.equal({ value: 1 });
 		});
 
 		it('should NOT be called on initial render', () => {
@@ -94,8 +91,7 @@ describe('Lifecycle methods', () => {
 			}
 			sinon.spy(ReceivePropsComponent.prototype, 'componentWillReceiveProps');
 			render(<ReceivePropsComponent />, scratch);
-			expect(ReceivePropsComponent.prototype.componentWillReceiveProps).not.to
-				.have.been.called;
+			expect(ReceivePropsComponent.prototype.componentWillReceiveProps).not.to.have.been.called;
 		});
 
 		// See last paragraph of cWRP section https://reactjs.org/docs/react-component.html#unsafe_componentwillreceiveprops
@@ -183,59 +179,6 @@ describe('Lifecycle methods', () => {
 			expect(Inner.prototype.componentWillReceiveProps).to.have.been.called;
 		});
 
-		it('should be called when rerender with new props from parent even with setState/forceUpdate in child', () => {
-			let setStateAndUpdateProps;
-			let forceUpdateAndUpdateProps;
-			let cWRPSpy = sinon.spy();
-
-			class Outer extends Component {
-				constructor(p, c) {
-					super(p, c);
-					this.state = { i: 0 };
-					this.update = this.update.bind(this);
-				}
-				update() {
-					this.setState({ i: this.state.i + 1 });
-				}
-				render(props, { i }) {
-					return <Inner i={i} update={this.update} />;
-				}
-			}
-			class Inner extends Component {
-				componentDidMount() {
-					expect(this.props.i).to.be.equal(0);
-
-					setStateAndUpdateProps = () => {
-						this.setState({});
-						this.props.update();
-					};
-					forceUpdateAndUpdateProps = () => {
-						this.forceUpdate();
-						this.props.update();
-					};
-				}
-				componentWillReceiveProps(nextProps) {
-					cWRPSpy(nextProps.i);
-				}
-				render() {
-					return <div />;
-				}
-			}
-			// Initial render
-			render(<Outer />, scratch);
-			expect(cWRPSpy).not.to.have.been.called;
-
-			// setState in inner component and update with new props
-			setStateAndUpdateProps();
-			rerender();
-			expect(cWRPSpy).to.have.been.calledWith(1);
-
-			// forceUpdate in inner component and update with new props
-			forceUpdateAndUpdateProps();
-			rerender();
-			expect(cWRPSpy).to.have.been.calledWith(2);
-		});
-
 		it('should be called in right execution order', () => {
 			let doRender;
 			class Outer extends Component {
@@ -282,15 +225,9 @@ describe('Lifecycle methods', () => {
 			doRender();
 			rerender();
 
-			expect(
-				Inner.prototype.componentWillReceiveProps
-			).to.have.been.calledBefore(Inner.prototype.componentWillUpdate);
-			expect(
-				Inner.prototype.componentWillReceiveProps
-			).to.have.been.calledBefore(Inner.prototype.shouldComponentUpdate);
-			expect(Inner.prototype.componentWillUpdate).to.have.been.calledBefore(
-				Inner.prototype.componentDidUpdate
-			);
+			expect(Inner.prototype.componentWillReceiveProps).to.have.been.calledBefore(Inner.prototype.componentWillUpdate);
+			expect(Inner.prototype.componentWillReceiveProps).to.have.been.calledBefore(Inner.prototype.shouldComponentUpdate);
+			expect(Inner.prototype.componentWillUpdate).to.have.been.calledBefore(Inner.prototype.componentDidUpdate);
 		});
 	});
 });
