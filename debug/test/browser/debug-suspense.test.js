@@ -10,7 +10,6 @@ import {
 /** @jsx createElement */
 
 describe('debug with suspense', () => {
-	/** @type {HTMLDivElement} */
 	let scratch;
 	let rerender;
 	let errors = [];
@@ -72,10 +71,8 @@ describe('debug with suspense', () => {
 				</Suspense>
 			);
 			render(suspense, scratch);
-			rerender(); // render fallback
 
 			expect(console.error).to.not.be.called;
-			expect(serializeHtml(scratch)).to.equal('<div>fallback...</div>');
 
 			return loader.then(() => {
 				rerender();
@@ -100,15 +97,11 @@ describe('debug with suspense', () => {
 					</Suspense>
 				);
 				render(suspense, scratch);
-				rerender(); // Render fallback
-
-				expect(serializeHtml(scratch)).to.equal('<div>fallback...</div>');
 
 				return loader.then(() => {
 					rerender();
 					expect(console.warn).to.be.calledTwice;
 					expect(warnings[1].includes('MyLazyLoaded')).to.equal(true);
-					expect(serializeHtml(scratch)).to.equal('<div>Hi there</div>');
 				});
 			});
 
@@ -126,19 +119,15 @@ describe('debug with suspense', () => {
 					</Suspense>
 				);
 				render(suspense, scratch);
-				rerender(); // Render fallback
-
-				expect(serializeHtml(scratch)).to.equal('<div>fallback...</div>');
 
 				return loader.then(() => {
 					rerender();
 					expect(console.warn).to.be.calledTwice;
 					expect(warnings[1].includes('HelloLazy')).to.equal(true);
-					expect(serializeHtml(scratch)).to.equal('<div>Hi there</div>');
 				});
 			});
 
-			it("should not log a component if lazy loader's Promise rejects", () => {
+			it('should not log a component if lazy throws', () => {
 				const loader = Promise.reject(new Error('Hey there'));
 				const FakeLazy = lazy(() => loader);
 				FakeLazy.propTypes = {};
@@ -148,9 +137,6 @@ describe('debug with suspense', () => {
 					</Suspense>,
 					scratch
 				);
-				rerender(); // Render fallback
-
-				expect(serializeHtml(scratch)).to.equal('<div>fallback...</div>');
 
 				return loader.catch(() => {
 					try {

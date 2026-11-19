@@ -122,11 +122,7 @@ describe('createElement(jsx)', () => {
 	});
 
 	it('should support nested children', () => {
-		const m = x => {
-			const result = h(x);
-			delete result._original;
-			return result;
-		};
+		const m = x => h(x);
 		expect(h('foo', null, m('a'), [m('b'), m('c')], m('d')))
 			.to.have.nested.property('props.children')
 			.that.eql([m('a'), [m('b'), m('c')], m('d')]);
@@ -161,50 +157,35 @@ describe('createElement(jsx)', () => {
 			.that.equals('textstuff');
 	});
 
-	it('should override children if null is provided as an argument', () => {
-		let r = h('foo', { foo: 'bar', children: 'baz' }, null);
-
-		expect(r)
-			.to.be.an('object')
-			.to.deep.nested.include({
-				'props.foo': 'bar',
-				'props.children': null
-			});
-	});
-
-	it('should NOT set children prop when unspecified', () => {
-		let r = h('foo', { foo: 'bar' });
+	it('should NOT set children prop when null', () => {
+		let r = h('foo', {foo : 'bar'}, null);
 
 		expect(r)
 			.to.be.an('object')
 			.to.have.nested.property('props.foo')
-			.not.to.have.nested.property('props.children');
-	});
+			.not.to.have.nested.property('props.children')
+			
+	})
+
+	it('should NOT set children prop when unspecified', () => {
+		let r = h('foo', {foo : 'bar'});
+
+		expect(r)
+			.to.be.an('object')
+			.to.have.nested.property('props.foo')
+			.not.to.have.nested.property('props.children')
+	})
 
 	it('should NOT merge adjacent text children', () => {
-		const bar = h('bar');
-		const barClone = h('bar');
-		const baz = h('baz');
-		const bazClone = h('baz');
-		const baz2 = h('baz');
-		const baz2Clone = h('baz');
-
-		delete bar._original;
-		delete barClone._original;
-		delete baz._original;
-		delete bazClone._original;
-		delete baz2._original;
-		delete baz2Clone._original;
-
 		let r = h(
 			'foo',
 			null,
 			'one',
 			'two',
-			bar,
+			h('bar'),
 			'three',
-			baz,
-			baz2,
+			h('baz'),
+			h('baz'),
 			'four',
 			null,
 			'five',
@@ -217,10 +198,10 @@ describe('createElement(jsx)', () => {
 			.that.deep.equals([
 				'one',
 				'two',
-				barClone,
+				h('bar'),
 				'three',
-				bazClone,
-				baz2Clone,
+				h('baz'),
+				h('baz'),
 				'four',
 				null,
 				'five',
@@ -252,7 +233,7 @@ describe('createElement(jsx)', () => {
 				null
 			]);
 	});
-
+	
 	it('should not merge children that are boolean values', () => {
 		let r = h('foo', null, 'one', true, 'two', false, 'three');
 
@@ -272,28 +253,11 @@ describe('createElement(jsx)', () => {
 			.that.deep.equals(['x', 'y']);
 	});
 
-	it('should respect defaultProps', () => {
-		const Component = ({ children }) => children;
-		Component.defaultProps = { foo: 'bar' };
-		expect(h(Component).props).to.deep.equal({ foo: 'bar' });
-	});
-
-	it('should override defaultProps', () => {
-		const Component = ({ children }) => children;
-		Component.defaultProps = { foo: 'default' };
-		expect(h(Component, { foo: 'bar' }).props).to.deep.equal({ foo: 'bar' });
-	});
-
 	it('should ignore props.children if children are manually specified', () => {
-		const element = (
+		expect(
 			<div a children={['a', 'b']}>
 				c
 			</div>
-		);
-		const childrenless = <div a>c</div>;
-		delete element._original;
-		delete childrenless._original;
-
-		expect(element).to.eql(childrenless);
+		).to.eql(<div a>c</div>);
 	});
 });

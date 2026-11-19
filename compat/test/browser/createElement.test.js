@@ -1,6 +1,5 @@
-import React, { createElement, render } from 'preact/compat';
+import React, { createElement } from 'preact/compat';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
-import { getSymbol } from './testUtils';
 
 describe('compat createElement()', () => {
 	/** @type {HTMLDivElement} */
@@ -20,8 +19,18 @@ describe('compat createElement()', () => {
 				<a>t</a>
 			</div>
 		);
-
-		const $$typeof = getSymbol('react.element', 0xeac7);
+		let $$typeof = 0xeac7;
+		try {
+			// eslint-disable-next-line
+			if (
+				Function.prototype.toString
+					.call(eval('Symbol.for'))
+					.match(/\[native code\]/)
+			) {
+				// eslint-disable-next-line
+				$$typeof = eval('Sym' + 'bol.for("react.element")');
+			}
+		} catch (e) {}
 		expect(vnode).to.have.property('$$typeof', $$typeof);
 		expect(vnode).to.have.property('type', 'div');
 		expect(vnode)
@@ -34,16 +43,5 @@ describe('compat createElement()', () => {
 			.to.have.property('props')
 			.that.is.an('object');
 		expect(vnode.props.children.props).to.eql({ children: 't' });
-	});
-
-	it('should not normalize text nodes', () => {
-		String.prototype.capFLetter = function() {
-			return this.charAt(0).toUpperCase() + this.slice(1);
-		};
-		let vnode = <div>hi buddy</div>;
-
-		render(vnode, scratch);
-
-		expect(scratch.innerHTML).to.equal('<div>hi buddy</div>');
 	});
 });

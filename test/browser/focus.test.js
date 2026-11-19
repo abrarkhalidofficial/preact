@@ -13,81 +13,9 @@ describe('focus', () => {
 	/** @type {() => void} */
 	let rerender;
 
-	/** @type {() => void} */
-	let prepend, append, shift, pop;
-
-	/** @type {() => void} */
-	let getDynamicListHtml;
-
-	class DynamicList extends Component {
-		constructor(props) {
-			super(props);
-			this.state = {
-				before: props.initialBefore || [],
-				after: props.initialAfter || []
-			};
-
-			prepend = () => {
-				const before = this.state.before;
-				const newValue = before[0] ? before[0] - 1 : 1;
-				this.setState({
-					before: [newValue, ...before]
-				});
-			};
-
-			append = () => {
-				const after = this.state.after;
-				const lastValue = after[after.length - 1];
-				const newValue = lastValue ? lastValue + 1 : 2;
-				this.setState({
-					after: [...after, newValue]
-				});
-			};
-
-			shift = () => {
-				this.setState({
-					before: this.state.before.slice(1)
-				});
-			};
-
-			pop = () => {
-				this.setState({
-					after: this.state.after.slice(0, -1)
-				});
-			};
-
-			const liHtml = this.props.as == Input ? inputStr : span;
-			getDynamicListHtml = () =>
-				div([
-					...this.state.before.map(liHtml),
-					'<input id="input-0" type="text">',
-					...this.state.after.map(liHtml)
-				]);
-		}
-
-		render(props, state) {
-			const ListComponent = props.as || ListItem;
-			return (
-				<div>
-					{state.before.map(value => (
-						<ListComponent key={props.unkeyed ? undefined : value}>
-							{value}
-						</ListComponent>
-					))}
-					<InputWithId id="0" />
-					{state.after.map(value => (
-						<ListComponent key={props.unkeyed ? undefined : value}>
-							{value}
-						</ListComponent>
-					))}
-				</div>
-			);
-		}
-	}
-
 	const List = ({ children }) => <div>{children}</div>;
 	const ListItem = ({ children }) => <span>{children}</span>;
-	const InputWithId = ({ id }) => <input id={`input-${id}`} type="text" />;
+	const InputWithId = ({ i }) => <input id={`input-${i}`} type="text" />;
 	const Input = () => <input type="text" />;
 
 	function focusInput() {
@@ -106,7 +34,6 @@ describe('focus', () => {
 	function focusInputById() {
 		if (!scratch) return;
 
-		/** @type {HTMLInputElement} */
 		const input = scratch.querySelector('#input-0');
 		input.value = 'a word';
 		input.focus();
@@ -208,66 +135,64 @@ describe('focus', () => {
 	});
 
 	it('should maintain focus when adding children around input', () => {
-		render(<DynamicList />, scratch);
+		render(
+			<List>
+				<Input />
+			</List>,
+			scratch
+		);
 
 		let input = focusInput();
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([], []));
 
-		prepend();
-		rerender();
+		render(
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+			</List>,
+			scratch
+		);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], []));
 		validateFocus(input, 'insert sibling before');
 
-		append();
-		rerender();
+		render(
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+			</List>,
+			scratch
+		);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], [2]));
 		validateFocus(input, 'insert sibling after');
 
-		append();
-		rerender();
+		render(
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+				<ListItem key="3">3</ListItem>
+			</List>,
+			scratch
+		);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], [2, 3]));
 		validateFocus(input, 'insert sibling after again');
 
-		prepend();
-		rerender();
+		render(
+			<List>
+				<ListItem key="0">0</ListItem>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+				<ListItem key="3">3</ListItem>
+			</List>,
+			scratch
+		);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-		validateFocus(input, 'insert sibling before again');
-	});
-
-	it('should maintain focus when adding children around input (unkeyed)', () => {
-		// Related preactjs/preact#2446
-
-		render(<DynamicList unkeyed />, scratch);
-
-		let input = focusInput();
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-
-		prepend();
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-		validateFocus(input, 'insert sibling before');
-
-		append();
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-		validateFocus(input, 'insert sibling after');
-
-		append();
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
-		validateFocus(input, 'insert sibling after again');
-
-		prepend();
-		rerender();
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([0, 1], [2, 3]));
 		validateFocus(input, 'insert sibling before again');
 	});
 
@@ -345,69 +270,122 @@ describe('focus', () => {
 
 	it('should maintain focus when removing elements around input', () => {
 		render(
-			<DynamicList initialBefore={[0, 1]} initialAfter={[2, 3]} />,
+			<List>
+				<ListItem key="0">0</ListItem>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+				<ListItem key="3">3</ListItem>
+			</List>,
 			scratch
 		);
 
 		let input = focusInput();
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([0, 1], [2, 3]));
 
-		shift();
-		rerender();
+		render(
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+				<ListItem key="3">3</ListItem>
+			</List>,
+			scratch
+		);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], [2, 3]));
 		validateFocus(input, 'remove sibling before');
 
-		pop();
-		rerender();
+		render(
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+				<ListItem key="2">2</ListItem>
+			</List>,
+			scratch
+		);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], [2]));
 		validateFocus(input, 'remove sibling after');
 
-		pop();
-		rerender();
+		render(
+			<List>
+				<ListItem key="1">1</ListItem>
+				<Input />
+			</List>,
+			scratch
+		);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([1], []));
 		validateFocus(input, 'remove sibling after 2');
 
-		shift();
-		rerender();
+		render(
+			<List>
+				<Input />
+			</List>,
+			scratch
+		);
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		expect(scratch.innerHTML).to.equal(getListHtml([], []));
 		validateFocus(input, 'remove sibling before 2');
 	});
 
 	it('should maintain focus when adding input next to the current input', () => {
-		render(<DynamicList as={Input} />, scratch);
-
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render(
+			<List>
+				<InputWithId i={0} />
+			</List>,
+			scratch
+		);
 
 		let input = focusInputById();
-		prepend();
-		rerender();
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render(
+			<List>
+				<Input key="1" />
+				<InputWithId i={0} />
+			</List>,
+			scratch
+		);
 		validateFocus(input, 'add input before');
 
 		input = focusInputById();
-		append();
-		rerender();
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render(
+			<List>
+				<Input key="1" />
+				<InputWithId i={0} />
+				<Input key="2" />
+			</List>,
+			scratch
+		);
 		validateFocus(input, 'add input after');
 
 		input = focusInputById();
-		prepend();
-		rerender();
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render(
+			<List>
+				<Input key="0" />
+				<Input key="1" />
+				<InputWithId i={0} />
+				<Input key="2" />
+			</List>,
+			scratch
+		);
 		validateFocus(input, 'add input first place');
 
 		input = focusInputById();
-		prepend();
-		rerender();
 
-		expect(scratch.innerHTML).to.equal(getDynamicListHtml());
+		render(
+			<List>
+				<Input key="-1" />
+				<Input key="0" />
+				<Input key="1" />
+				<InputWithId i={0} />
+				<Input key="2" />
+			</List>,
+			scratch
+		);
 		validateFocus(input, 'add input before');
 	});
 

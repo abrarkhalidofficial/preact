@@ -1,6 +1,11 @@
 import 'mocha';
 import { expect } from 'chai';
-import { createElement, Component, RenderableProps, Fragment } from '../../';
+import {
+	createElement,
+	Component,
+	RenderableProps,
+	Fragment
+} from '../../src/';
 
 // Test `this` binding on event handlers
 function onHandler(this: HTMLInputElement, event: any) {

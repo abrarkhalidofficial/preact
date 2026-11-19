@@ -12,6 +12,7 @@ let spy = (name, ...args) => {
 };
 
 describe('refs', () => {
+	/** @type {HTMLDivElement} */
 	let scratch;
 	let rerender;
 
@@ -47,7 +48,7 @@ describe('refs', () => {
 
 	it('should support createRef', () => {
 		const r = createRef();
-		expect(r.current).to.equal(null);
+		expect(r.current).to.equal(undefined);
 
 		render(<div ref={r} />, scratch);
 		expect(r.current).to.equalNode(scratch.firstChild);
@@ -479,68 +480,51 @@ describe('refs', () => {
 		expect(el).to.not.be.equal(null);
 	});
 
-	it('should not remove refs for memoized components keyed', () => {
-		const ref = createRef();
-		const element = <div ref={ref}>hey</div>;
-		function App(props) {
-			return <div key={props.count}>{element}</div>;
+	it('should bind refs before componentDidMount', () => {
+		/** @type {import('preact').RefObject<HTMLSpanElement>[]} */
+		const refs = [];
+
+		class Parent extends Component {
+			componentDidMount() {
+				// Child refs should be set
+				expect(refs.length).to.equal(2);
+				expect(refs[0].current.tagName).to.equal('SPAN');
+				expect(refs[1].current.tagName).to.equal('SPAN');
+			}
+
+			render(props) {
+				return props.children;
+			}
 		}
 
-		render(<App count={0} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-		render(<App count={1} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-		render(<App count={2} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-	});
+		class Child extends Component {
+			constructor(props) {
+				super(props);
 
-	it('should not remove refs for memoized components unkeyed', () => {
-		const ref = createRef();
-		const element = <div ref={ref}>hey</div>;
-		function App(props) {
-			return <div>{element}</div>;
+				this.ref = createRef();
+			}
+
+			componentDidMount() {
+				// SPAN refs should be set
+				expect(this.ref.current.tagName).to.equal('SPAN');
+				refs.push(this.ref);
+			}
+
+			render() {
+				return <span ref={this.ref}>Hello</span>;
+			}
 		}
 
-		render(<App count={0} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-		render(<App count={1} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-		render(<App count={2} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-	});
+		render(
+			<Parent>
+				<Child />
+				<Child />
+			</Parent>,
+			scratch
+		);
 
-	// TODO
-	it.skip('should properly call null for memoized components keyed', () => {
-		const calls = [];
-		const element = <div ref={x => calls.push(x)}>hey</div>;
-		function App(props) {
-			return <div key={props.count}>{element}</div>;
-		}
-
-		render(<App count={0} />, scratch);
-		render(<App count={1} />, scratch);
-		render(<App count={2} />, scratch);
-		expect(calls.length).to.equal(5);
-		expect(calls).to.deep.equal([
-			scratch.firstChild.firstChild,
-			null,
-			scratch.firstChild.firstChild,
-			null,
-			scratch.firstChild.firstChild
-		]);
-	});
-
-	it('should properly call null for memoized components unkeyed', () => {
-		const calls = [];
-		const element = <div ref={x => calls.push(x)}>hey</div>;
-		function App(props) {
-			return <div>{element}</div>;
-		}
-
-		render(<App count={0} />, scratch);
-		render(<App count={1} />, scratch);
-		render(<App count={2} />, scratch);
-		expect(calls.length).to.equal(1);
-		expect(calls[0]).to.equal(scratch.firstChild.firstChild);
+		expect(scratch.innerHTML).to.equal('<span>Hello</span><span>Hello</span>');
+		expect(refs[0].current).to.equalNode(scratch.firstChild);
+		expect(refs[1].current).to.equalNode(scratch.lastChild);
 	});
 });

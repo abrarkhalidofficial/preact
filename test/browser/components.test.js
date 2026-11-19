@@ -6,7 +6,8 @@ import {
 	getMixedArray,
 	mixedArrayHTML,
 	serializeHtml,
-	sortAttributes
+	sortAttributes,
+	spyAll
 } from '../_util/helpers';
 import { div, span, p } from '../_util/dom';
 
@@ -112,20 +113,6 @@ describe('Components', () => {
 				);
 
 			expect(scratch.innerHTML).to.equal('<div foo="bar"></div>');
-		});
-
-		it('should not crash when setting state in constructor', () => {
-			class Foo extends Component {
-				constructor(props) {
-					super(props);
-					// the following line made `this._nextState !== this.state` be truthy prior to the fix for preactjs/preact#2638
-					this.state = {};
-					this.setState({ preact: 'awesome' });
-				}
-			}
-
-			expect(() => render(<Foo foo="bar" />, scratch)).not.to.throw();
-			rerender();
 		});
 
 		it('should not crash when setting state with cb in constructor', () => {
@@ -341,7 +328,7 @@ describe('Components', () => {
 		});
 
 		it("should render components that don't pass args into the Component constructor (unistore pattern)", () => {
-			// Pattern unistore uses for connect: https://github.com/developit/unistore/blob/1df7cf60ac6fa1a70859d745fbaea7ea3f1b8d30/src/integrations/preact.js#L23
+			// Pattern unistore uses for connect: https://git.io/fxRqu
 			function Wrapper() {
 				instance = this;
 				this.state = STATE;
@@ -440,7 +427,7 @@ describe('Components', () => {
 		});
 
 		it("should render components that don't inherit from Component (unistore pattern)", () => {
-			// Pattern unistore uses for Provider: https://github.com/developit/unistore/blob/1df7cf60ac6fa1a70859d745fbaea7ea3f1b8d30/src/integrations/preact.js#L59
+			// Pattern unistore uses for Provider: https://git.io/fxRqR
 			function Provider() {
 				instance = this;
 				this.state = STATE;
@@ -867,10 +854,10 @@ describe('Components', () => {
 			expect(scratch.innerHTML).to.equal('<div></div>');
 		});
 
-		it('should be null with null as a child', () => {
+		it('should be undefined with null as a child', () => {
 			render(<Foo>{null}</Foo>, scratch);
 
-			expect(children).to.be.null;
+			expect(children).to.be.undefined;
 			expect(scratch.innerHTML).to.equal('<div></div>');
 		});
 
@@ -1297,10 +1284,7 @@ describe('Components', () => {
 				}
 			}
 
-			sinon.spy(Inner.prototype, 'componentWillUnmount');
-			sinon.spy(Inner.prototype, 'componentWillMount');
-			sinon.spy(Inner.prototype, 'componentDidMount');
-			sinon.spy(Inner.prototype, 'render');
+			spyAll(Inner.prototype);
 
 			render(<Root />, scratch);
 
@@ -1335,10 +1319,7 @@ describe('Components', () => {
 					return <C />;
 				}
 			}
-			sinon.spy(Outer.prototype, 'componentWillUnmount');
-			sinon.spy(Outer.prototype, 'componentWillMount');
-			sinon.spy(Outer.prototype, 'componentDidMount');
-			sinon.spy(Outer.prototype, 'render');
+			spyAll(Outer.prototype);
 
 			class Inner extends Component {
 				componentWillUnmount() {}
@@ -1348,10 +1329,7 @@ describe('Components', () => {
 					return h('element' + ++counter);
 				}
 			}
-			sinon.spy(Inner.prototype, 'componentWillUnmount');
-			sinon.spy(Inner.prototype, 'componentWillMount');
-			sinon.spy(Inner.prototype, 'componentDidMount');
-			sinon.spy(Inner.prototype, 'render');
+			spyAll(Inner.prototype);
 
 			class Inner2 extends Component {
 				constructor(props, context) {
@@ -1365,10 +1343,7 @@ describe('Components', () => {
 					return h('element' + ++counter);
 				}
 			}
-			sinon.spy(Inner2.prototype, 'componentWillUnmount');
-			sinon.spy(Inner2.prototype, 'componentWillMount');
-			sinon.spy(Inner2.prototype, 'componentDidMount');
-			sinon.spy(Inner2.prototype, 'render');
+			spyAll(Inner2.prototype);
 
 			render(<Outer child={Inner} />, scratch);
 
@@ -1436,9 +1411,7 @@ describe('Components', () => {
 					return <div class="inner">foo</div>;
 				}
 			}
-			sinon.spy(Inner.prototype, 'componentWillMount');
-			sinon.spy(Inner.prototype, 'componentWillUnmount');
-			sinon.spy(Inner.prototype, 'render');
+			spyAll(Inner.prototype);
 
 			const InnerFunc = () => <div class="inner-func">bar</div>;
 
@@ -1479,8 +1452,7 @@ describe('Components', () => {
 					return <I>{children}</I>;
 				}
 			}
-			sinon.spy(C.prototype, 'componentWillMount');
-			sinon.spy(C.prototype, 'render');
+			spyAll(C.prototype);
 			return C;
 		};
 
@@ -1498,7 +1470,7 @@ describe('Components', () => {
 			[C1, C2, C3]
 				.reduce(
 					(acc, c) =>
-						acc.concat(c.prototype.render, c.prototype.componentWillMount),
+						acc.concat(Object.keys(c.prototype).map(key => c.prototype[key])),
 					[F1, F2, F3]
 				)
 				.forEach(c => c.resetHistory());
@@ -1780,7 +1752,7 @@ describe('Components', () => {
 			}
 		}
 
-		let renderChildDiv = false;
+		let condition = false;
 
 		let child;
 		class Child extends Component {
@@ -1789,7 +1761,7 @@ describe('Components', () => {
 			}
 			render() {
 				child = this;
-				if (!renderChildDiv) return null;
+				if (!condition) return null;
 				return <div class="child" />;
 			}
 		}
@@ -1802,30 +1774,25 @@ describe('Components', () => {
 			}
 		}
 
-		// TODO: Consider rewriting test to not rely on internal properties
-		// and instead capture user-facing bug that would occur if this
-		// behavior were broken
-		const getDom = c => ('__v' in c ? c.__v.__e : c._vnode._dom);
-
 		render(<App />, scratch);
-		expect(getDom(child)).to.equalNode(child.base);
+		expect(child._vnode._dom).to.equalNode(child.base);
 
 		app.forceUpdate();
-		expect(getDom(child)).to.equalNode(child.base);
+		expect(child._vnode._dom).to.equalNode(child.base);
 
 		parent.setState({});
-		renderChildDiv = true;
+		condition = true;
 		child.forceUpdate();
-		expect(getDom(child)).to.equalNode(child.base);
+		expect(child._vnode._dom).to.equalNode(child.base);
 		rerender();
 
-		expect(getDom(child)).to.equalNode(child.base);
+		expect(child._vnode._dom).to.equalNode(child.base);
 
-		renderChildDiv = false;
+		condition = false;
 		app.setState({});
 		child.forceUpdate();
 		rerender();
-		expect(getDom(child)).to.equalNode(child.base);
+		expect(child._vnode._dom).to.equalNode(child.base);
 	});
 
 	// preact/#1323
@@ -2498,13 +2465,8 @@ describe('Components', () => {
 			);
 			render(divVNode, scratch);
 
-			// TODO: Consider rewriting test to not rely on internal properties
-			// and instead capture user-facing bug that would occur if this
-			// behavior were broken
-			const domProp = '__e' in divVNode ? '__e' : '_dom';
-
 			expect(scratch.innerHTML).to.equal('<div><p>child</p></div>');
-			expect(divVNode[domProp]).to.equalNode(
+			expect(divVNode._dom).to.equalNode(
 				scratch.firstChild,
 				'initial - divVNode._dom'
 			);
@@ -2517,7 +2479,7 @@ describe('Components', () => {
 			rerender();
 
 			expect(scratch.innerHTML).to.equal('<div><span>child</span></div>');
-			expect(divVNode[domProp]).to.equalNode(
+			expect(divVNode._dom).to.equalNode(
 				scratch.firstChild,
 				'swapChildTag - divVNode._dom'
 			);
@@ -2557,63 +2519,6 @@ describe('Components', () => {
 			expect(() => increment()).to.not.throw();
 			expect(() => rerender()).to.not.throw();
 			expect(scratch.innerHTML).to.equal('');
-		});
-
-		it('setState callbacks should have latest state, even when called in render', () => {
-			let callbackState;
-			let i = 0;
-
-			class Foo extends Component {
-				constructor(props) {
-					super(props);
-					this.state = { foo: 'bar' };
-				}
-				render() {
-					// So we don't get infinite loop
-					if (i++ === 0) {
-						this.setState({ foo: 'baz' }, () => {
-							callbackState = this.state;
-						});
-					}
-					return String(this.state.foo);
-				}
-			}
-
-			render(<Foo />, scratch);
-			expect(scratch.innerHTML).to.equal('bar');
-
-			rerender();
-			expect(scratch.innerHTML).to.equal('baz');
-			expect(callbackState).to.deep.equal({ foo: 'baz' });
-		});
-
-		// #2716
-		it('should work with readonly state', () => {
-			let update;
-			class Foo extends Component {
-				constructor(props) {
-					super(props);
-					this.state = { foo: 'bar' };
-					update = () =>
-						this.setState(prev => {
-							Object.defineProperty(prev, 'foo', {
-								writable: false
-							});
-
-							return prev;
-						});
-				}
-
-				render() {
-					return <div />;
-				}
-			}
-
-			render(<Foo />, scratch);
-			expect(() => {
-				update();
-				rerender();
-			}).to.not.throw();
 		});
 	});
 

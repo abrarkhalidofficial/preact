@@ -11,13 +11,12 @@ import {
 	getCurrentVNode,
 	getDisplayName
 } from './component-stack';
-import { assign } from './util';
 
-const isWeakMapSupported = typeof WeakMap == 'function';
+const isWeakMapSupported = typeof WeakMap === 'function';
 
 function getClosestDomNodeParent(parent) {
 	if (!parent) return {};
-	if (typeof parent.type == 'function') {
+	if (typeof parent.type === 'function') {
 		return getClosestDomNodeParent(parent._parent);
 	}
 	return parent;
@@ -25,8 +24,6 @@ function getClosestDomNodeParent(parent) {
 
 export function initDebug() {
 	setupComponentStack();
-
-	let hooksAllowed = false;
 
 	/* eslint-disable no-console */
 	let oldBeforeDiff = options._diff;
@@ -42,11 +39,10 @@ export function initDebug() {
 				useLayoutEffect: new WeakMap(),
 				lazyPropTypes: new WeakMap()
 		  };
-	const deprecations = [];
 
-	options._catchError = (error, vnode, oldVNode, errorInfo) => {
+	options._catchError = (error, vnode, oldVNode) => {
 		let component = vnode && vnode._component;
-		if (component && typeof error.then == 'function') {
+		if (component && typeof error.then === 'function') {
 			const promise = error;
 			error = new Error(
 				`Missing Suspense. The throwing component was: ${getDisplayName(vnode)}`
@@ -67,22 +63,7 @@ export function initDebug() {
 			}
 		}
 
-		try {
-			errorInfo = errorInfo || {};
-			errorInfo.componentStack = getOwnerStack(vnode);
-			oldCatchError(error, vnode, oldVNode, errorInfo);
-
-			// when an error was handled by an ErrorBoundary we will nontheless emit an error
-			// event on the window object. This is to make up for react compatibility in dev mode
-			// and thus make the Next.js dev overlay work.
-			if (typeof error.then != 'function') {
-				setTimeout(() => {
-					throw error;
-				});
-			}
-		} catch (e) {
-			throw e;
-		}
+		oldCatchError(error, vnode, oldVNode);
 	};
 
 	options._root = (vnode, parentNode) => {
@@ -92,7 +73,6 @@ export function initDebug() {
 					'Check if the element is available in the DOM/has the correct id.'
 			);
 		}
-
 		let isValid;
 		switch (parentNode.nodeType) {
 			case ELEMENT_NODE:
@@ -103,7 +83,6 @@ export function initDebug() {
 			default:
 				isValid = false;
 		}
-
 		if (!isValid) {
 			let componentName = getDisplayName(vnode);
 			throw new Error(
@@ -118,8 +97,6 @@ export function initDebug() {
 		let { type, _parent: parent } = vnode;
 		let parentVNode = getClosestDomNodeParent(parent);
 
-		hooksAllowed = true;
-
 		if (type === undefined) {
 			throw new Error(
 				'Undefined component passed to createElement()\n\n' +
@@ -127,7 +104,7 @@ export function initDebug() {
 					serializeVNode(vnode) +
 					`\n\n${getOwnerStack(vnode)}`
 			);
-		} else if (type != null && typeof type == 'object') {
+		} else if (type != null && typeof type === 'object') {
 			if (type._children !== undefined && type._dom !== undefined) {
 				throw new Error(
 					`Invalid type passed to createElement(): ${type}\n\n` +
@@ -182,8 +159,8 @@ export function initDebug() {
 
 		if (
 			vnode.ref !== undefined &&
-			typeof vnode.ref != 'function' &&
-			typeof vnode.ref != 'object' &&
+			typeof vnode.ref !== 'function' &&
+			typeof vnode.ref !== 'object' &&
 			!('$$typeof' in vnode) // allow string refs when preact-compat is installed
 		) {
 			throw new Error(
@@ -194,12 +171,12 @@ export function initDebug() {
 			);
 		}
 
-		if (typeof vnode.type == 'string') {
+		if (typeof vnode.type === 'string') {
 			for (const key in vnode.props) {
 				if (
 					key[0] === 'o' &&
 					key[1] === 'n' &&
-					typeof vnode.props[key] != 'function' &&
+					typeof vnode.props[key] !== 'function' &&
 					vnode.props[key] != null
 				) {
 					throw new Error(
@@ -213,7 +190,7 @@ export function initDebug() {
 		}
 
 		// Check prop-types if available
-		if (typeof vnode.type == 'function' && vnode.type.propTypes) {
+		if (typeof vnode.type === 'function' && vnode.type.propTypes) {
 			if (
 				vnode.type.displayName === 'Lazy' &&
 				warnedComponents &&
@@ -233,51 +210,31 @@ export function initDebug() {
 					);
 				}
 			}
-
-			let values = vnode.props;
-			if (vnode.type._forwarded) {
-				values = assign({}, values);
-				delete values.ref;
-			}
-
 			checkPropTypes(
 				vnode.type.propTypes,
-				values,
-				'prop',
+				vnode.props,
 				getDisplayName(vnode),
-				() => getOwnerStack(vnode)
+				serializeVNode(vnode)
 			);
 		}
 
 		if (oldBeforeDiff) oldBeforeDiff(vnode);
 	};
 
-	options._hook = (comp, index, type) => {
-		if (!comp || !hooksAllowed) {
+	options._hook = comp => {
+		if (!comp) {
 			throw new Error('Hook can only be invoked from render methods.');
 		}
 
-		if (oldHook) oldHook(comp, index, type);
+		if (oldHook) oldHook(comp);
 	};
 
-	// Ideally we'd want to print a warning once per component, but we
-	// don't have access to the vnode that triggered it here. As a
-	// compromise and to avoid flooding the console with warnings we
-	// print each deprecation warning only once.
-	const warn = (property, message) => ({
+	const warn = (property, err) => ({
 		get() {
-			const key = 'get' + property + message;
-			if (deprecations && deprecations.indexOf(key) < 0) {
-				deprecations.push(key);
-				console.warn(`getting vnode.${property} is deprecated, ${message}`);
-			}
+			throw new Error(`getting vnode.${property} is deprecated, ${err}`);
 		},
 		set() {
-			const key = 'set' + property + message;
-			if (deprecations && deprecations.indexOf(key) < 0) {
-				deprecations.push(key);
-				console.warn(`setting vnode.${property} is not allowed, ${message}`);
-			}
+			throw new Error(`setting vnode.${property} is not allowed, ${err}`);
 		}
 	});
 
@@ -287,26 +244,19 @@ export function initDebug() {
 		children: warn('children', 'use vnode.props.children')
 	};
 
-	const deprecatedProto = Object.create({}, deprecatedAttributes);
-
 	options.vnode = vnode => {
-		const props = vnode.props;
-		if (
-			vnode.type !== null &&
-			props != null &&
-			('__source' in props || '__self' in props)
-		) {
-			const newProps = (vnode.props = {});
-			for (let i in props) {
-				const v = props[i];
-				if (i === '__source') vnode.__source = v;
-				else if (i === '__self') vnode.__self = v;
-				else newProps[i] = v;
-			}
+		let source, self;
+		if (vnode.props && vnode.props.__source) {
+			source = vnode.props.__source;
+			delete vnode.props.__source;
 		}
-
-		// eslint-disable-next-line
-		vnode.__proto__ = deprecatedProto;
+		if (vnode.props && vnode.props.__self) {
+			self = vnode.props.__self;
+			delete vnode.props.__self;
+		}
+		vnode.__self = self;
+		vnode.__source = source;
+		Object.defineProperties(vnode, deprecatedAttributes);
 		if (oldVnode) oldVnode(vnode);
 	};
 
@@ -326,14 +276,70 @@ export function initDebug() {
 					delete child._depth;
 					const keys = Object.keys(child).join(',');
 					throw new Error(
-						`Objects are not valid as a child. Encountered an object with the keys {${keys}}.` +
-							`\n\n${getOwnerStack(vnode)}`
+						`Objects are not valid as a child. Encountered an object with the keys {${keys}}.`
 					);
 				}
 			});
 		}
 
-		hooksAllowed = false;
+		/** @type {import('./internal').Component} */
+		const component = vnode._component;
+		if (component && component.__hooks) {
+			let hooks = component.__hooks;
+			if (Array.isArray(hooks._list)) {
+				hooks._list.forEach(hook => {
+					if (hook._factory && (!hook._args || !Array.isArray(hook._args))) {
+						let componentName = getDisplayName(vnode);
+						console.warn(
+							`In ${componentName} you are calling useMemo/useCallback without passing arguments.\n` +
+								`This is a noop since it will not be able to memoize, it will execute it every render.` +
+								`\n\n${getOwnerStack(vnode)}`
+						);
+					}
+				});
+			}
+
+			// After paint effects
+			if (Array.isArray(hooks._pendingEffects)) {
+				hooks._pendingEffects.forEach(effect => {
+					if (
+						!Array.isArray(effect._args) &&
+						warnedComponents &&
+						!warnedComponents.useEffect.has(vnode.type)
+					) {
+						warnedComponents.useEffect.set(vnode.type, true);
+						let componentName = getDisplayName(vnode);
+						console.warn(
+							'You should provide an array of arguments as the second argument to the "useEffect" hook.\n\n' +
+								'Not doing so will invoke this effect on every render.\n\n' +
+								`This effect can be found in the render of ${componentName}.` +
+								`\n\n${getOwnerStack(vnode)}`
+						);
+					}
+				});
+			}
+
+			// Layout Effects
+			if (vnode._renderCallbacks) {
+				vnode._renderCallbacks.forEach(possibleEffect => {
+					if (
+						possibleEffect._value &&
+						!Array.isArray(possibleEffect._args) &&
+						warnedComponents &&
+						!warnedComponents.useLayoutEffect.has(vnode.type)
+					) {
+						warnedComponents.useLayoutEffect.set(vnode.type, true);
+						let componentName = getDisplayName(vnode);
+						console.warn(
+							'You should provide an array of arguments as the second argument to the "useLayoutEffect" hook.\n\n' +
+								'Not doing so will invoke this effect on every render.\n\n' +
+								`This effect can be found in the render of ${componentName}.` +
+								`\n\n${getOwnerStack(vnode)}`
+						);
+					}
+				});
+			}
+		}
 
 		if (oldDiffed) oldDiffed(vnode);
 
@@ -366,17 +372,18 @@ export function initDebug() {
 const setState = Component.prototype.setState;
 Component.prototype.setState = function(update, callback) {
 	if (this._vnode == null) {
-		// `this._vnode` will be `null` during componentWillMount. But it
-		// is perfectly valid to call `setState` during cWM. So we
-		// need an additional check to verify that we are dealing with a
-		// call inside constructor.
-		if (this.state == null) {
-			console.warn(
-				`Calling "this.setState" inside the constructor of a component is a ` +
-					`no-op and might be a bug in your application. Instead, set ` +
-					`"this.state = {}" directly.\n\n${getOwnerStack(getCurrentVNode())}`
-			);
-		}
+		console.warn(
+			`Calling "this.setState" inside the constructor of a component is a ` +
+				`no-op and might be a bug in your application. Instead, set ` +
+				`"this.state = {}" directly.\n\n${getOwnerStack(getCurrentVNode())}`
+		);
+	} else if (this._parentDom == null) {
+		console.warn(
+			`Can't call "this.setState" on an unmounted component. This is a no-op, ` +
+				`but it indicates a memory leak in your application. To fix, cancel all ` +
+				`subscriptions and asynchronous tasks in the componentWillUnmount method.` +
+				`\n\n${getOwnerStack(this._vnode)}`
+		);
 	}
 
 	return setState.call(this, update, callback);
@@ -393,7 +400,7 @@ Component.prototype.forceUpdate = function(callback) {
 		);
 	} else if (this._parentDom == null) {
 		console.warn(
-			`Can't call "this.forceUpdate" on an unmounted component. This is a no-op, ` +
+			`Can't call "this.setState" on an unmounted component. This is a no-op, ` +
 				`but it indicates a memory leak in your application. To fix, cancel all ` +
 				`subscriptions and asynchronous tasks in the componentWillUnmount method.` +
 				`\n\n${getOwnerStack(this._vnode)}`
@@ -417,7 +424,7 @@ export function serializeVNode(vnode) {
 			let value = props[prop];
 
 			// If it is an object but doesn't have toString(), use Object.toString
-			if (typeof value == 'function') {
+			if (typeof value === 'function') {
 				value = `function ${value.displayName || value.name}() {}`;
 			}
 

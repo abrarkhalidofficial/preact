@@ -67,37 +67,18 @@ describe('svg', () => {
 		);
 	});
 
-	it('should render correct SVG attribute names to the DOM', () => {
+	it('should render SVG to DOM without name (clipPathUnits) attribute manipulation', () => {
 		React.render(
-			<svg
-				clipPath="value"
-				clipRule="value"
-				clipPathUnits="value"
-				colorInterpolationFilters="auto"
-				fontSizeAdjust="value"
-				glyphOrientationHorizontal="value"
-				glyphOrientationVertical="value"
-				shapeRendering="crispEdges"
-				glyphRef="value"
-				horizAdvX="value"
-				horizOriginX="value"
-				markerStart="value"
-				markerHeight="value"
-				markerUnits="value"
-				markerWidth="value"
-				unitsPerEm="value"
-				vertAdvY="value"
-				vertOriginX="value"
-				vertOriginY="value"
-				x1="value"
-				xChannelSelector="value"
-			/>,
+			<svg>
+				<clipPath clipPathUnits="objectBoundingBox">
+					<polygon points="0,100 50,25 50,75 100,0" />
+				</clipPath>
+			</svg>,
 			scratch
 		);
-
 		expect(serializeHtml(scratch)).to.eql(
 			sortAttributes(
-				'<svg clip-path="value" clip-rule="value" clipPathUnits="value" color-interpolation-filters="auto" font-size-adjust="value" glyph-orientation-horizontal="value" glyph-orientation-vertical="value" shape-rendering="crispEdges" glyphRef="value" horiz-adv-x="value" horiz-origin-x="value" marker-start="value" markerHeight="value" markerUnits="value" markerWidth="value" units-per-em="value" vert-adv-y="value" vert-origin-x="value" vert-origin-y="value" x1="value" xChannelSelector="value"></svg>'
+				'<svg><clipPath clipPathUnits="objectBoundingBox"><polygon points="0,100 50,25 50,75 100,0" /></clipPath></svg>'
 			)
 		);
 	});

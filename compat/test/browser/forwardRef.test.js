@@ -7,13 +7,10 @@ import React, {
 	memo,
 	useState,
 	useRef,
-	useImperativeHandle,
-	createPortal,
-	Component
+	useImperativeHandle
 } from 'preact/compat';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
 import { setupRerender, act } from 'preact/test-utils';
-import { getSymbol } from './testUtils';
 
 /* eslint-disable react/jsx-boolean-value, react/display-name, prefer-arrow-callback */
 
@@ -33,12 +30,6 @@ describe('forwardRef', () => {
 	it('should have isReactComponent flag', () => {
 		let App = forwardRef((_, ref) => <div ref={ref}>foo</div>);
 		expect(App.prototype.isReactComponent).to.equal(true);
-	});
-
-	it('should have $$typeof property', () => {
-		let App = forwardRef((_, ref) => <div ref={ref}>foo</div>);
-		const expected = getSymbol('react.forward_ref', 0xf47);
-		expect(App.$$typeof).to.equal(expected);
 	});
 
 	it('should pass ref with createRef', () => {
@@ -389,113 +380,5 @@ describe('forwardRef', () => {
 		});
 
 		expect(_ref.current).to.equal(scratch.firstChild);
-	});
-
-	it('should forward at diff time instead vnode-creation.', () => {
-		let ref, forceTransition, forceOpen;
-
-		const Portal = ({ children, open }) =>
-			open ? createPortal(children, scratch) : null;
-
-		const Wrapper = forwardRef((_props, ref) => <div ref={ref}>Wrapper</div>);
-		const Transition = ({ children }) => {
-			const state = useState(0);
-			forceTransition = state[1];
-			expect(children.ref).to.not.be.undefined;
-			if (state[0] === 0) expect(children.props.ref).to.be.undefined;
-			return children;
-		};
-
-		const App = () => {
-			const openState = useState(false);
-			forceOpen = openState[1];
-			ref = useRef();
-			return (
-				<Portal open={openState[0]}>
-					<Transition>
-						<Wrapper ref={ref} />
-					</Transition>
-				</Portal>
-			);
-		};
-
-		render(<App />, scratch);
-
-		act(() => {
-			forceOpen(true);
-		});
-
-		expect(ref.current.innerHTML).to.equal('Wrapper');
-
-		act(() => {
-			forceTransition(1);
-		});
-
-		expect(ref.current.innerHTML).to.equal('Wrapper');
-	});
-
-	// Issue #2566
-	it('should pass null as ref when no ref is present', () => {
-		let actual;
-		const App = forwardRef((_, ref) => {
-			actual = ref;
-			return <div />;
-		});
-
-		render(<App />, scratch);
-		expect(actual).to.equal(null);
-	});
-
-	// Issue #2599
-	it('should not crash when explicitly passing null', () => {
-		let actual;
-		const App = forwardRef((_, ref) => {
-			actual = ref;
-			return <div />;
-		});
-
-		// eslint-disable-next-line new-cap
-		render(App({}, null), scratch);
-		expect(actual).to.equal(null);
-	});
-
-	// Issue #3483
-	it('should allow for multiple refs', () => {
-		let actual;
-		const App = forwardRef((_, ref) => {
-			actual = ref;
-			return <div />;
-		});
-
-		const ref = { a: createRef(), b: createRef() };
-		// eslint-disable-next-line new-cap
-		render(<App ref={ref} />, scratch);
-		expect(actual).to.equal(ref);
-	});
-
-	it('should not leak context into refs', () => {
-		class Provider extends Component {
-			getChildContext() {
-				return { foo: 2 };
-			}
-			render() {
-				return this.props.children;
-			}
-		}
-
-		let actual;
-		const Forwarded = forwardRef((_, ref) => {
-			actual = ref;
-			return <div />;
-		});
-
-		render(
-			<Provider>
-				<Forwarded />
-			</Provider>,
-			scratch
-		);
-
-		expect(actual).to.equal(null);
 	});
 });

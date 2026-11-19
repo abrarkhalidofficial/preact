@@ -17,7 +17,6 @@ export function Component(props, context) {
 
 /**
  * Update component state and schedule a re-render.
- * @this {import('./internal').Component}
  * @param {object | ((s: object, p: object) => object)} update A hash of state
  * properties to update with new values or a function that given the current
  * state and props returns a new partial state
@@ -27,16 +26,14 @@ export function Component(props, context) {
 Component.prototype.setState = function(update, callback) {
 	// only clone state when copying to nextState the first time.
 	let s;
-	if (this._nextState != null && this._nextState !== this.state) {
+	if (this._nextState !== this.state) {
 		s = this._nextState;
 	} else {
 		s = this._nextState = assign({}, this.state);
 	}
 
 	if (typeof update == 'function') {
-		// Some libraries like `immer` mark the current state as readonly,
-		// preventing us from mutating it, so we need to clone it. See #2716
-		update = update(assign({}, s), this.props);
+		update = update(s, this.props);
 	}
 
 	if (update) {
@@ -47,14 +44,13 @@ Component.prototype.setState = function(update, callback) {
 	if (update == null) return;
 
 	if (this._vnode) {
-		if (callback) this._renderCallbacks.push(callback);
+		if (callback) this._vnode._renderCallbacks.push(callback);
 		enqueueRender(this);
 	}
 };
 
 /**
  * Immediately perform a synchronous re-render of the component
- * @this {import('./internal').Component}
  * @param {() => void} [callback] A function to be called after component is
  * re-rendered
  */
@@ -64,7 +60,7 @@ Component.prototype.forceUpdate = function(callback) {
 		// is coming from. We need this because forceUpdate should never call
 		// shouldComponentUpdate
 		this._force = true;
-		if (callback) this._renderCallbacks.push(callback);
+		if (callback) this._vnode._renderCallbacks.push(callback);
 		enqueueRender(this);
 	}
 };
@@ -110,7 +106,7 @@ export function getDomSibling(vnode, childIndex) {
 	// Only climb up and search the parent if we aren't searching through a DOM
 	// VNode (meaning we reached the DOM parent of the original vnode that began
 	// the search)
-	return typeof vnode.type == 'function' ? getDomSibling(vnode) : null;
+	return typeof vnode.type === 'function' ? getDomSibling(vnode) : null;
 }
 
 /**
@@ -124,23 +120,19 @@ function renderComponent(component) {
 
 	if (parentDom) {
 		let commitQueue = [];
-		const oldVNode = assign({}, vnode);
-		oldVNode._original = vnode._original + 1;
-
-		diff(
+		let newDom = diff(
 			parentDom,
 			vnode,
-			oldVNode,
-			component._globalContext,
+			assign({}, vnode),
+			component._context,
 			parentDom.ownerSVGElement !== undefined,
-			vnode._hydrating != null ? [oldDom] : null,
+			null,
 			commitQueue,
-			oldDom == null ? getDomSibling(vnode) : oldDom,
-			vnode._hydrating
+			oldDom == null ? getDomSibling(vnode) : oldDom
 		);
 		commitRoot(commitQueue, vnode);
 
-		if (vnode._dom != oldDom) {
+		if (newDom != oldDom) {
 			updateParentDomPointers(vnode);
 		}
 	}
@@ -168,7 +160,18 @@ function updateParentDomPointers(vnode) {
  * The render queue
  * @type {Array<import('./internal').Component>}
  */
-let rerenderQueue = [];
+let q = [];
+
+/**
+ * Asynchronously schedule a callback
+ * @type {(cb: () => void) => void}
+ */
+/* istanbul ignore next */
+// Note the following line isn't tree-shaken by rollup cuz of rollup/rollup#2566
+const defer =
+	typeof Promise == 'function'
+		? Promise.prototype.then.bind(Promise.resolve())
+		: setTimeout;
 
 /*
  * The value of `Component.debounce` must asynchronously invoke the passed in callback. It is
@@ -187,28 +190,20 @@ let prevDebounce;
  */
 export function enqueueRender(c) {
 	if (
-		(!c._dirty &&
-			(c._dirty = true) &&
-			rerenderQueue.push(c) &&
-			!process._rerenderCount++) ||
+		(!c._dirty && (c._dirty = true) && q.push(c) === 1) ||
 		prevDebounce !== options.debounceRendering
 	) {
 		prevDebounce = options.debounceRendering;
-		(prevDebounce || setTimeout)(process);
+		(prevDebounce || defer)(process);
 	}
 }
 
 /** Flush the render queue by rerendering all queued components */
 function process() {
-	let queue;
-	while ((process._rerenderCount = rerenderQueue.length)) {
-		queue = rerenderQueue.sort((a, b) => a._vnode._depth - b._vnode._depth);
-		rerenderQueue = [];
-		// Don't update `renderCount` yet. Keep its value non-zero to prevent unnecessary
-		// process() calls from getting scheduled while `queue` is still being consumed.
-		queue.some(c => {
-			if (c._dirty) renderComponent(c);
-		});
+	let p;
+	q.sort((a, b) => b._vnode._depth - a._vnode._depth);
+	while ((p = q.pop())) {
+		// forceUpdate's callback argument is reused here to indicate a non-forced update.
+		if (p._dirty) renderComponent(p);
 	}
 }
-process._rerenderCount = 0;

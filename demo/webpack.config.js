@@ -5,9 +5,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const preact = path.join(__dirname, '..', 'src');
 const compat = path.join(__dirname, '..', 'compat', 'src');
 
-/** @type {import('webpack').Configuration} */
 module.exports = {
-	mode: "development",
 	context: __dirname,
 	entry: './index',
 	output: {
@@ -102,8 +100,12 @@ module.exports = {
 		]
 	},
 	devtool: 'inline-source-map',
+	node: {
+		process: 'mock',
+		Buffer: false,
+		setImmediate: false
+	},
 	devServer: {
-		allowedHosts: "all",
 		historyApiFallback: true
 	},
 	plugins: [new HtmlWebpackPlugin()]

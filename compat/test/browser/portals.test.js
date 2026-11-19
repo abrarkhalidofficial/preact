@@ -3,31 +3,25 @@ import React, {
 	render,
 	createPortal,
 	useState,
-	Component,
-	useEffect
+	Component
 } from 'preact/compat';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
-import { setupRerender, act } from 'preact/test-utils';
+import { setupRerender } from 'preact/test-utils';
 
 /* eslint-disable react/jsx-boolean-value, react/display-name, prefer-arrow-callback */
 
 describe('Portal', () => {
 	/** @type {HTMLDivElement} */
 	let scratch;
-	/** @type {HTMLDivElement} */
-	let scratch2;
-
 	let rerender;
 
 	beforeEach(() => {
 		scratch = setupScratch();
-		scratch2 = setupScratch('scratch-2');
 		rerender = setupRerender();
 	});
 
 	afterEach(() => {
 		teardown(scratch);
-		teardown(scratch2);
 	});
 
 	it('should render into a different root node', () => {
@@ -194,7 +188,7 @@ describe('Portal', () => {
 		}
 
 		render(<App />, root);
-		expect(dialog.childNodes.length).to.equal(1);
+		expect(dialog.childNodes.length).to.equal(2);
 		render(null, root);
 		expect(dialog.childNodes.length).to.equal(0);
 	});
@@ -464,65 +458,6 @@ describe('Portal', () => {
 		expect(scratch.innerHTML).to.equal('<div><p>Hello</p></div>');
 	});
 
-	it('should support nested portals remounting #2669', () => {
-		let setVisible;
-		let i = 0;
-
-		function PortalComponent(props) {
-			const innerVnode = <div id="inner">{i}</div>;
-			innerVnode.___id = 'inner_' + i++;
-			const outerVnode = (
-				<div id="outer">
-					{i}
-					{props.show && createPortal(innerVnode, scratch)}
-				</div>
-			);
-			outerVnode.___id = 'outer_' + i++;
-			return createPortal(outerVnode, scratch);
-		}
-
-		function App() {
-			const [visible, _setVisible] = useState(true);
-			setVisible = _setVisible;
-
-			return (
-				<div id="app">
-					test
-					<PortalComponent show={visible} />
-				</div>
-			);
-		}
-
-		render(<App />, scratch);
-		expect(scratch.innerHTML).to.equal(
-			'<div id="inner">0</div><div id="outer">1</div><div id="app">test</div>'
-		);
-
-		act(() => {
-			setVisible(false);
-		});
-		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div id="outer">3</div><div id="app">test</div>'
-		);
-
-		act(() => {
-			setVisible(true);
-		});
-		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div id="outer">5</div><div id="app">test</div><div id="inner">4</div>'
-		);
-
-		act(() => {
-			setVisible(false);
-		});
-		rerender();
-		expect(scratch.innerHTML).to.equal(
-			'<div id="outer">7</div><div id="app">test</div>'
-		);
-	});
-
 	it('should not unmount when parent renders', () => {
 		let root = document.createElement('div');
 		let dialog = document.createElement('div');
@@ -629,125 +564,5 @@ describe('Portal', () => {
 		expect(scratch.innerHTML).to.equal(
 			'<div><div>Closed</div><button>Show</button>Closed</div>'
 		);
-	});
-
-	it('should order effects well', () => {
-		const calls = [];
-		const Modal = ({ children }) => {
-			useEffect(() => {
-				calls.push('Modal');
-			}, []);
-			return createPortal(<div className="modal">{children}</div>, scratch);
-		};
-
-		const ModalButton = ({ i }) => {
-			useEffect(() => {
-				calls.push(`Button ${i}`);
-			}, []);
-
-			return <button>Action</button>;
-		};
-
-		const App = () => {
-			useEffect(() => {
-				calls.push('App');
-			}, []);
-
-			return (
-				<Modal>
-					<ModalButton i="1" />
-					<ModalButton i="2" />
-				</Modal>
-			);
-		};
-
-		act(() => {
-			render(<App />, scratch);
-		});
-
-		expect(calls).to.deep.equal(['Button 1', 'Button 2', 'Modal', 'App']);
-	});
-
-	it('should include containerInfo', () => {
-		let root = document.createElement('div');
-		document.body.appendChild(root);
-
-		const A = () => <span>A</span>;
-
-		let portal;
-		function Foo(props) {
-			portal = createPortal(props.children, root);
-			return <div>{portal}</div>;
-		}
-		render(
-			<Foo>
-				<A />
-			</Foo>,
-			scratch
-		);
-
-		expect(portal.containerInfo).to.equal(root);
-
-		root.parentNode.removeChild(root);
-	});
-
-	it('should order complex effects well', () => {
-		const calls = [];
-		const Parent = ({ children, isPortal }) => {
-			useEffect(() => {
-				calls.push(`${isPortal ? 'Portal ' : ''}Parent`);
-			}, [isPortal]);
-
-			return <div>{children}</div>;
-		};
-
-		const Child = ({ index, isPortal }) => {
-			useEffect(() => {
-				calls.push(`${isPortal ? 'Portal ' : ''}Child ${index}`);
-			}, [index, isPortal]);
-
-			return <div>{index}</div>;
-		};
-
-		const Portal = () => {
-			const content = [1, 2, 3].map(index => (
-				<Child key={index} index={index} isPortal />
-			));
-
-			useEffect(() => {
-				calls.push('Portal');
-			}, []);
-
-			return createPortal(<Parent isPortal>{content}</Parent>, scratch2);
-		};
-
-		const App = () => {
-			const content = [1, 2, 3].map(index => (
-				<Child key={index} index={index} />
-			));
-
-			return (
-				<React.Fragment>
-					<Parent>{content}</Parent>
-					<Portal />
-				</React.Fragment>
-			);
-		};
-
-		act(() => {
-			render(<App />, scratch);
-		});
-
-		expect(calls).to.deep.equal([
-			'Child 1',
-			'Child 2',
-			'Child 3',
-			'Parent',
-			'Portal Child 1',
-			'Portal Child 2',
-			'Portal Child 3',
-			'Portal Parent',
-			'Portal'
-		]);
 	});
 });

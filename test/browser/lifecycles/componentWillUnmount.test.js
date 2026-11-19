@@ -1,5 +1,5 @@
 import { createElement, render, Component } from 'preact';
-import { setupScratch, teardown } from '../../_util/helpers';
+import { setupScratch, teardown, spyAll } from '../../_util/helpers';
 
 /** @jsx createElement */
 
@@ -31,13 +31,8 @@ describe('Lifecycle methods', () => {
 					return 'bar';
 				}
 			}
-			sinon.spy(Foo.prototype, 'componentDidMount');
-			sinon.spy(Foo.prototype, 'componentWillUnmount');
-			sinon.spy(Foo.prototype, 'render');
-
-			sinon.spy(Bar.prototype, 'componentDidMount');
-			sinon.spy(Bar.prototype, 'componentWillUnmount');
-			sinon.spy(Bar.prototype, 'render');
+			spyAll(Foo.prototype);
+			spyAll(Bar.prototype);
 
 			render(<Foo />, scratch);
 			expect(Foo.prototype.componentDidMount, 'initial render').to.have.been

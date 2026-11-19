@@ -10,7 +10,7 @@ export function setupRerender() {
 	return () => options.__test__drainQueue && options.__test__drainQueue();
 }
 
-const isThenable = value => value != null && typeof value.then == 'function';
+const isThenable = value => value != null && typeof value.then === 'function';
 
 /** Depth of nested calls to `act`. */
 let actDepth = 0;
@@ -30,8 +30,6 @@ export function act(cb) {
 		// outermost call returns. In the inner call, we just execute the
 		// callback and return since the infrastructure for flushing has already
 		// been set up.
-		//
-		// If an exception occurs, the outermost `act` will handle cleanup.
 		const result = cb();
 		if (isThenable(result)) {
 			return result.then(() => {
@@ -52,50 +50,31 @@ export function act(cb) {
 	options.requestAnimationFrame = fc => (flush = fc);
 
 	const finish = () => {
-		try {
-			rerender();
-			while (flush) {
-				toFlush = flush;
-				flush = null;
+		rerender();
+		while (flush) {
+			toFlush = flush;
+			flush = null;
 
-				toFlush();
-				rerender();
-			}
-		} catch (e) {
-			if (!err) {
-				err = e;
-			}
-		} finally {
-			teardown();
+			toFlush();
+			rerender();
 		}
 
+		teardown();
 		options.requestAnimationFrame = previousRequestAnimationFrame;
+
 		--actDepth;
 	};
 
-	let err;
-	let result;
-
-	try {
-		result = cb();
-	} catch (e) {
-		err = e;
-	}
+	const result = cb();
 
 	if (isThenable(result)) {
-		return result.then(finish, err => {
-			finish();
-			throw err;
-		});
+		return result.then(finish);
 	}
 
 	// nb. If the callback is synchronous, effects must be flushed before
 	// `act` returns, so that the caller does not have to await the result,
 	// even though React recommends this.
 	finish();
-	if (err) {
-		throw err;
-	}
 	return Promise.resolve();
 }
 
@@ -109,7 +88,7 @@ export function teardown() {
 		delete options.__test__drainQueue;
 	}
 
-	if (typeof options.__test__previousDebounce != 'undefined') {
+	if (typeof options.__test__previousDebounce !== 'undefined') {
 		options.debounceRendering = options.__test__previousDebounce;
 		delete options.__test__previousDebounce;
 	} else {

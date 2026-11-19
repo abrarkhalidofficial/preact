@@ -1,7 +1,7 @@
 import { createElement, render } from 'preact';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
 import { useImperativeHandle, useRef, useState } from 'preact/hooks';
-import { setupRerender } from 'preact/test-utils';
+import { setupRerender } from '../../../test-utils';
 
 /** @jsx createElement */
 
@@ -178,24 +178,5 @@ describe('useImperativeHandle', () => {
 		}
 
 		expect(() => render(<Comp />, scratch)).to.not.throw();
-	});
-
-	it('should reset ref to null when the component get unmounted', () => {
-		let ref,
-			createHandleSpy = sinon.spy(() => ({ test: () => 'test' }));
-
-		function Comp() {
-			ref = useRef({});
-			useImperativeHandle(ref, createHandleSpy, [1]);
-			return <p>Test</p>;
-		}
-
-		render(<Comp />, scratch);
-		expect(createHandleSpy).to.have.been.calledOnce;
-		expect(ref.current).to.not.equal(null);
-
-		render(<div />, scratch);
-		expect(createHandleSpy).to.have.been.calledOnce;
-		expect(ref.current).to.equal(null);
 	});
 });

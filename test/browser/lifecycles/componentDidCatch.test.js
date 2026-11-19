@@ -1,6 +1,11 @@
 import { setupRerender } from 'preact/test-utils';
 import { createElement, render, Component, Fragment } from 'preact';
-import { setupScratch, teardown } from '../../_util/helpers';
+import {
+	setupScratch,
+	teardown,
+	spyAll,
+	resetAllSpies
+} from '../../_util/helpers';
 
 /** @jsx createElement */
 
@@ -28,11 +33,18 @@ describe('Lifecycle methods', () => {
 
 		/** @type {typeof import('../../../').Component} */
 		let ThrowErr;
+
+		/** @type {Receiver} */
+		let receiver;
 		class Receiver extends Component {
+			constructor() {
+				super();
+				receiver = this;
+			}
+
 			componentDidCatch(error) {
 				this.setState({ error });
 			}
-
 			render() {
 				return this.state.error
 					? String(this.state.error)
@@ -40,10 +52,7 @@ describe('Lifecycle methods', () => {
 			}
 		}
 
-		let thrower;
-
-		sinon.spy(Receiver.prototype, 'componentDidCatch');
-		sinon.spy(Receiver.prototype, 'render');
+		spyAll(Receiver.prototype);
 
 		function throwExpectedError() {
 			throw (expectedError = new Error('Error!'));
@@ -51,11 +60,6 @@ describe('Lifecycle methods', () => {
 
 		beforeEach(() => {
 			ThrowErr = class ThrowErr extends Component {
-				constructor(props) {
-					super(props);
-					thrower = this;
-				}
-
 				componentDidCatch() {
 					expect.fail("Throwing component should not catch it's own error.");
 				}
@@ -65,10 +69,9 @@ describe('Lifecycle methods', () => {
 			};
 			sinon.spy(ThrowErr.prototype, 'componentDidCatch');
 
+			receiver = undefined;
 			expectedError = undefined;
-
-			Receiver.prototype.componentDidCatch.resetHistory();
-			Receiver.prototype.render.resetHistory();
+			resetAllSpies(Receiver.prototype);
 		});
 
 		afterEach(() => {
@@ -76,7 +79,6 @@ describe('Lifecycle methods', () => {
 				ThrowErr.prototype.componentDidCatch,
 				"Throwing component should not catch it's own error."
 			).to.not.be.called;
-			thrower = undefined;
 		});
 
 		it('should be called when child fails in constructor', () => {
@@ -195,7 +197,7 @@ describe('Lifecycle methods', () => {
 				</Receiver>,
 				scratch
 			);
-			thrower.forceUpdate();
+			receiver.forceUpdate();
 			rerender();
 
 			expect(Receiver.prototype.componentDidCatch).to.have.been.calledWith(
@@ -213,7 +215,7 @@ describe('Lifecycle methods', () => {
 				scratch
 			);
 
-			thrower.forceUpdate();
+			receiver.forceUpdate();
 			rerender();
 			expect(Receiver.prototype.componentDidCatch).to.have.been.calledWith(
 				expectedError
@@ -230,7 +232,7 @@ describe('Lifecycle methods', () => {
 				scratch
 			);
 
-			thrower.forceUpdate();
+			receiver.forceUpdate();
 			rerender();
 			expect(Receiver.prototype.componentDidCatch).to.have.been.calledWith(
 				expectedError
@@ -568,10 +570,8 @@ describe('Lifecycle methods', () => {
 			);
 			rerender();
 
-			expect(Adapter.prototype.componentDidCatch, 'Adapter').to.have.been
-				.called;
-			expect(Receiver.prototype.componentDidCatch, 'Receiver').to.have.been
-				.called;
+			expect(Adapter.prototype.componentDidCatch).to.have.been.called;
+			expect(Receiver.prototype.componentDidCatch).to.have.been.called;
 			expect(scratch).to.have.property('textContent', 'Error: Error!');
 		});
 
@@ -667,37 +667,6 @@ describe('Lifecycle methods', () => {
 			rerender();
 
 			expect(scratch.innerHTML).to.equal('<div>Error: Error!</div>');
-		});
-
-		it('should pass errorInfo on render error', () => {
-			let info;
-			class Receiver extends Component {
-				constructor(props) {
-					super(props);
-					this.state = { error: null };
-				}
-				componentDidCatch(error, errorInfo) {
-					info = errorInfo;
-					this.setState({ error });
-				}
-				render() {
-					if (this.state.error) return <div />;
-					return this.props.children;
-				}
-			}
-
-			function ThrowErr() {
-				throw new Error('fail');
-			}
-
-			render(
-				<Receiver>
-					<ThrowErr />
-				</Receiver>,
-				scratch
-			);
-
-			expect(info).to.deep.equal({});
 		});
 	});
 });

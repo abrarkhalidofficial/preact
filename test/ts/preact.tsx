@@ -2,12 +2,10 @@ import {
 	createElement,
 	render,
 	Component,
-	ComponentProps,
 	FunctionalComponent,
 	AnyComponent,
-	h,
-	createRef
-} from '../../';
+	h
+} from '../../src';
 
 interface DummyProps {
 	initialInput: string;
@@ -102,23 +100,6 @@ const UseOfComponentWithChildren = () => {
 		</ComponentWithChildren>
 	);
 };
-
-// TODO: make this work
-// const DummyChildren: FunctionalComponent = ({ children }) => {
-// 	return children;
-// };
-
-// function ReturnChildren(props: { children: preact.ComponentChildren }) {
-// 	return props.children;
-// }
-
-// function TestUndefinedChildren() {
-// 	return (
-// 		<ReturnChildren>
-// 			<ReturnChildren>Hello</ReturnChildren>
-// 		</ReturnChildren>
-// 	);
-// }
 
 // using ref and or jsx
 class ComponentUsingRef extends Component<any, any> {
@@ -226,8 +207,7 @@ class DefaultPropsWithUnion extends Component<
 		| {
 				type: 'number';
 				num: number;
-		  }
-	)
+		  })
 > {
 	static defaultProps = {
 		default: true
@@ -296,39 +276,3 @@ class ComponentWithPartialSetState extends Component<{}, PartialState> {
 }
 
 const withPartialSetState = <ComponentWithPartialSetState />;
-
-let functionalProps: ComponentProps<typeof DummerComponent> = {
-	initialInput: '',
-	input: ''
-};
-
-let classProps: ComponentProps<typeof DummyComponent> = {
-	initialInput: ''
-};
-
-let elementProps: ComponentProps<'button'> = {
-	type: 'button'
-};
-
-// Typing of style property
-const acceptsNumberAsLength = <div style={{ marginTop: 20 }} />;
-const acceptsStringAsLength = <div style={{ marginTop: '20px' }} />;
-
-const ReturnNull: FunctionalComponent = () => null;
-
-// Refs should work on elements
-const ref = createRef<HTMLDivElement>();
-createElement('div', { ref: ref }, 'hi');
-h('div', { ref: ref }, 'hi');
-
-// Refs should work on functions
-const functionRef = createRef();
-const RefComponentTest = () => <p>hi</p>;
-createElement(RefComponentTest, { ref: functionRef }, 'hi');
-h(RefComponentTest, { ref: functionRef }, 'hi');
-
-// Should accept onInput
-const onInput = (e: h.JSX.TargetedEvent<HTMLInputElement>) => {};
-<input onInput={onInput} />;
-createElement('input', { onInput: onInput });
-h('input', { onInput: onInput });

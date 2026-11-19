@@ -25,9 +25,6 @@ describe('debug options', () => {
 	/** @type {(count: number) => void} */
 	let setCount;
 
-	/** @type {import('sinon').SinonFakeTimers | undefined} */
-	let clock;
-
 	beforeEach(() => {
 		scratch = setupScratch();
 		rerender = setupRerender();
@@ -42,7 +39,6 @@ describe('debug options', () => {
 
 	afterEach(() => {
 		teardown(scratch);
-		if (clock) clock.restore();
 	});
 
 	class ClassApp extends Component {
@@ -101,7 +97,6 @@ describe('debug options', () => {
 	});
 
 	it('should call old options on error', () => {
-		const e = new Error('test');
 		class ErrorApp extends Component {
 			constructor() {
 				super();
@@ -117,21 +112,15 @@ describe('debug options', () => {
 
 		function Throw({ error }) {
 			if (error) {
-				throw e;
+				throw new Error('test');
 			} else {
 				return <div>no error</div>;
 			}
 		}
 
-		clock = sinon.useFakeTimers();
-
 		render(<ErrorApp />, scratch);
 		rerender();
 
 		expect(catchErrorSpy).to.have.been.called;
-
-		// we expect to throw after setTimeout to trigger a window.onerror
-		// this is to ensure react compat (i.e. with next.js' dev overlay)
-		expect(() => clock.tick(0)).to.throw(e);
 	});
 });

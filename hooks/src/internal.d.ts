@@ -1,11 +1,6 @@
-import {
-	Component as PreactComponent,
-	PreactContext,
-	ErrorInfo
-} from '../../src/internal';
-import { Reducer } from '.';
+import { Component as PreactComponent } from '../../src/internal';
 
-export { PreactContext };
+export { PreactContext } from '../../src/internal';
 
 /**
  * The type of arguments passed to a Hook function. While this type is not
@@ -37,12 +32,7 @@ export interface Component extends PreactComponent<any, any> {
 	__hooks?: ComponentHooks;
 }
 
-export type HookState =
-	| EffectHookState
-	| MemoHookState
-	| ReducerHookState
-	| ContextHookState
-	| ErrorBoundaryHookState;
+export type HookState = EffectHookState | MemoHookState | ReducerHookState;
 
 export type Effect = () => void | Cleanup;
 export type Cleanup = () => void;
@@ -50,31 +40,16 @@ export type Cleanup = () => void;
 export interface EffectHookState {
 	_value?: Effect;
 	_args?: any[];
-	_pendingArgs?: any[];
-	_cleanup?: Cleanup | void;
+	_cleanup?: Cleanup;
 }
 
 export interface MemoHookState {
 	_value?: any;
-	_pendingValue?: any;
 	_args?: any[];
-	_pendingArgs?: any[];
 	_factory?: () => any;
 }
 
 export interface ReducerHookState {
-	_nextValue?: any;
 	_value?: any;
 	_component?: Component;
-	_reducer?: Reducer<any, any>;
-}
-
-export interface ContextHookState {
-	/** Whether this hooks as subscribed to updates yet */
-	_value?: boolean;
-	_context?: PreactContext;
-}
-
-export interface ErrorBoundaryHookState {
-	_value?: (error: any, errorInfo: ErrorInfo) => void;
 }

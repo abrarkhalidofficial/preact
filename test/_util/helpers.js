@@ -145,7 +145,7 @@ function serializeDomTree(node) {
  */
 export function createEvent(name) {
 	// Modern browsers
-	if (typeof Event == 'function') {
+	if (typeof Event === 'function') {
 		return new Event(name);
 	}
 
@@ -183,12 +183,11 @@ export function sortCss(cssText) {
 
 /**
  * Setup the test environment
- * @param {string} [id]
  * @returns {HTMLDivElement}
  */
-export function setupScratch(id) {
+export function setupScratch() {
 	const scratch = document.createElement('div');
-	scratch.id = id || 'scratch';
+	scratch.id = 'scratch';
 	(document.body || document.documentElement).appendChild(scratch);
 	return scratch;
 }
@@ -221,8 +220,6 @@ export function teardown(scratch) {
 	if (getLog().length > 0) {
 		clearLog();
 	}
-
-	restoreElementAttributes();
 }
 
 const Foo = () => 'd';
@@ -256,38 +253,12 @@ export function sortAttributes(html) {
 	);
 }
 
-let attributesSpy, originalAttributesPropDescriptor;
+export const spyAll = obj =>
+	Object.keys(obj).forEach(key => sinon.spy(obj, key));
 
-export function spyOnElementAttributes() {
-	const test = Object.getOwnPropertyDescriptor(Element.prototype, 'attributes');
-
-	// IE11 doesn't correctly restore the prototype methods so we have to check
-	// whether this prototype method is already a sinon spy.
-	if (!attributesSpy && !(test && test.get && test.get.isSinonProxy)) {
-		if (!originalAttributesPropDescriptor) {
-			originalAttributesPropDescriptor = Object.getOwnPropertyDescriptor(
-				Element.prototype,
-				'attributes'
-			);
+export const resetAllSpies = obj =>
+	Object.keys(obj).forEach(key => {
+		if (obj[key].args) {
+			obj[key].resetHistory();
 		}
-
-		attributesSpy = sinon.spy(Element.prototype, 'attributes', ['get']);
-	} else if (test && test.get && test.get.isSinonProxy) {
-		// Due to IE11 not resetting we will do this manually when it is a proxy.
-		test.get.resetHistory();
-	}
-
-	return attributesSpy || test;
-}
-
-function restoreElementAttributes() {
-	if (originalAttributesPropDescriptor) {
-		// Workaround bug in Sinon where getter/setter spies don't get auto-restored
-		Object.defineProperty(
-			Element.prototype,
-			'attributes',
-			originalAttributesPropDescriptor
-		);
-		attributesSpy = null;
-	}
-}
+	});

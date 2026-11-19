@@ -4,12 +4,8 @@ import {
 	teardown,
 	serializeHtml
 } from '../../../test/_util/helpers';
-import './fakeDevTools';
 import 'preact/debug';
 import * as PropTypes from 'prop-types';
-
-// eslint-disable-next-line no-duplicate-imports
-import { resetPropWarnings } from 'preact/debug';
 
 const h = createElement;
 /** @jsx createElement */
@@ -34,10 +30,6 @@ describe('debug', () => {
 		teardown(scratch);
 	});
 
-	it('should initialize devtools', () => {
-		expect(window.__PREACT_DEVTOOLS__.attachPreact).to.have.been.called;
-	});
-
 	it('should print an error on rendering on undefined parent', () => {
 		let fn = () => render(<div />, undefined);
 		expect(fn).to.throw(/render/);
@@ -58,10 +50,6 @@ describe('debug', () => {
 		fn = () => render(<App />, {});
 		expect(fn).to.throw(/<App/);
 		expect(fn).to.throw(/[object Object]/);
-
-		fn = () => render(<Fragment />, 'badroot');
-		expect(fn).to.throw(/<Fragment/);
-		expect(fn).to.throw(/badroot/);
 	});
 
 	it('should print an error with (class) component name when available', () => {
@@ -117,47 +105,17 @@ describe('debug', () => {
 		expect(vnode.props.__self).to.be.undefined;
 	});
 
-	it('should warn when accessing certain attributes', () => {
+	it('should throw errors when accessing certain attributes', () => {
 		const vnode = h('div', null);
-
-		// Push into an array to avoid empty statements being dead code eliminated
-		const res = [];
-		res.push(vnode);
-		res.push(vnode.attributes);
-		expect(console.warn).to.be.calledOnce;
-		expect(console.warn.args[0]).to.match(/use vnode.props/);
-		res.push(vnode.nodeName);
-		expect(console.warn).to.be.calledTwice;
-		expect(console.warn.args[1]).to.match(/use vnode.type/);
-		res.push(vnode.children);
-		expect(console.warn).to.be.calledThrice;
-		expect(console.warn.args[2]).to.match(/use vnode.props.children/);
-
-		// Should only warn once
-		res.push(vnode.attributes);
-		expect(console.warn).to.be.calledThrice;
-		res.push(vnode.nodeName);
-		expect(console.warn).to.be.calledThrice;
-		res.push(vnode.children);
-		expect(console.warn).to.be.calledThrice;
-
-		vnode.attributes = {};
-		expect(console.warn.args[3]).to.match(/use vnode.props/);
-		vnode.nodeName = '';
-		expect(console.warn.args[4]).to.match(/use vnode.type/);
-		vnode.children = [];
-		expect(console.warn.args[5]).to.match(/use vnode.props.children/);
-
-		// Should only warn once
-		vnode.attributes = {};
-		expect(console.warn.args.length).to.equal(6);
-		vnode.nodeName = '';
-		expect(console.warn.args.length).to.equal(6);
-		vnode.children = [];
-		expect(console.warn.args.length).to.equal(6);
-
-		// Mark res as used, otherwise it will be dead code eliminated
-		expect(res.length).to.equal(7);
+		expect(() => vnode).to.not.throw();
+		expect(() => vnode.attributes).to.throw(/use vnode.props/);
+		expect(() => vnode.nodeName).to.throw(/use vnode.type/);
+		expect(() => vnode.children).to.throw(/use vnode.props.children/);
+		expect(() => (vnode.attributes = {})).to.throw(/use vnode.props/);
+		expect(() => (vnode.nodeName = 'test')).to.throw(/use vnode.type/);
+		expect(() => (vnode.children = [<div />])).to.throw(
+			/use vnode.props.children/
+		);
 	});
 
 	it('should warn when calling setState inside the constructor', () => {
@@ -176,10 +134,13 @@ describe('debug', () => {
 		expect(console.warn.args[0]).to.match(/no-op/);
 	});
 
-	it('should NOT warn when calling setState inside the cWM', () => {
+	it('should warn when calling setState on an unmounted Component', () => {
+		let setState;
+
 		class Foo extends Component {
-			componentWillMount() {
-				this.setState({ foo: true });
+			constructor(props) {
+				super(props);
+				setState = () => this.setState({ foo: true });
 			}
 			render() {
 				return <div>foo</div>;
@@ -188,6 +149,12 @@ describe('debug', () => {
 
 		render(<Foo />, scratch);
 		expect(console.warn).to.not.be.called;
+
+		render(null, scratch);
+
+		setState();
+		expect(console.warn).to.be.calledOnce;
+		expect(console.warn.args[0]).to.match(/no-op/);
 	});
 
 	it('should warn when calling forceUpdate inside the constructor', () => {
@@ -516,10 +483,6 @@ describe('debug', () => {
 	});
 
 	describe('PropTypes', () => {
-		beforeEach(() => {
-			resetPropWarnings();
-		});
-
 		it("should fail if props don't match prop-types", () => {
 			function Foo(props) {
 				return <h1>{props.text}</h1>;
@@ -529,42 +492,10 @@ describe('debug', () => {
 				text: PropTypes.string.isRequired
 			};
 
-			render(<Foo text={123} />, scratch);
+			render(<Foo />, scratch);
 
 			expect(console.error).to.be.calledOnce;
-
-			// The message here may change when the "prop-types" library is updated,
-			// but we check it exactly to make sure all parameters were supplied
-			// correctly.
-			expect(console.error).to.have.been.calledOnceWith(
-				sinon.match(
-					/^Failed prop type: Invalid prop `text` of type `number` supplied to `Foo`, expected `string`\.\n {2}in Foo \(at (.*)[/\\]debug[/\\]test[/\\]browser[/\\]debug\.test\.js:[0-9]+\)$/m
-				)
-			);
-		});
-
-		it('should only log a given prop type error once', () => {
-			function Foo(props) {
-				return <h1>{props.text}</h1>;
-			}
-
-			Foo.propTypes = {
-				text: PropTypes.string.isRequired,
-				count: PropTypes.number
-			};
-
-			// Trigger the same error twice. The error should only be logged
-			// once.
-			render(<Foo text={123} />, scratch);
-			render(<Foo text={123} />, scratch);
-
-			expect(console.error).to.be.calledOnce;
-
-			// Trigger a different error. This should result in a new log
-			// message.
-			console.error.resetHistory();
-			render(<Foo text="ok" count="123" />, scratch);
-			expect(console.error).to.be.calledOnce;
+			expect(errors[0].includes('required')).to.equal(true);
 		});
 
 		it('should render with error logged when validator gets signal and throws exception', () => {

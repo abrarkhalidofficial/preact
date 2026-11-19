@@ -42,13 +42,9 @@ describe('serializeVNode', () => {
 	it('should serialize props', () => {
 		expect(serializeVNode(<div class="foo" />)).to.equal('<div class="foo" />');
 
-		// Ensure that we have a predictable function name. Our test runner
-		// creates an all inclusive bundle per file and the identifier
-		// "noop" may have already been used.
-		// eslint-disable-next-line func-style
-		let noop = function noopFn() {};
+		let noop = () => {};
 		expect(serializeVNode(<div onClick={noop} />)).to.equal(
-			'<div onClick="function noopFn() {}" />'
+			'<div onClick="function noop() {}" />'
 		);
 
 		function Foo(props) {
