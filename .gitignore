@@ -4,7 +4,6 @@ npm-debug.log
 dist
 */package-lock.json
 yarn.lock
-.vscode
 .idea
 test/ts/**/*.js
 coverage
@@ -13,6 +12,4 @@ coverage
 package/
 preact-*.tgz
 preact.tgz
-branch_structure.json
-temp_auto_push.bat
-temp_interactive_push.bat
+config.bat
