@@ -1,7 +1,7 @@
-import { createElement, render } from 'preact';
+import { createElement as h, render } from '../../src/index';
 import { setupScratch, teardown } from '../_util/helpers';
 
-/** @jsx createElement */
+/** @jsx h */
 
 describe('Select', () => {
 	let scratch;
@@ -34,9 +34,7 @@ describe('Select', () => {
 			return (
 				<select>
 					<option value="A">A</option>
-					<option selected value="B">
-						B
-					</option>
+					<option selected value="B">B</option>
 					<option value="C">C</option>
 				</select>
 			);
@@ -51,12 +49,8 @@ describe('Select', () => {
 			return (
 				<select multiple>
 					<option value="A">A</option>
-					<option selected value="B">
-						B
-					</option>
-					<option selected value="C">
-						C
-					</option>
+					<option selected value="B">B</option>
+					<option selected value="C">C</option>
 				</select>
 			);
 		}

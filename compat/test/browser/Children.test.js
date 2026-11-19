@@ -1,12 +1,10 @@
-import {
-	setupScratch,
-	teardown,
-	serializeHtml
-} from '../../../test/_util/helpers';
+import { setupScratch, teardown, serializeHtml } from '../../../test/_util/helpers';
+// eslint-disable-next-line no-unused-vars
+import React, { Children, render } from '../../src';
 import { div, span } from '../../../test/_util/dom';
-import React, { createElement, Children, render } from 'preact/compat';
 
 describe('Children', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
@@ -31,13 +29,7 @@ describe('Children', () => {
 		});
 
 		it('should return number of children', () => {
-			render(
-				<Foo>
-					<div />
-					foo
-				</Foo>,
-				scratch
-			);
+			render(<Foo><div />foo</Foo>, scratch);
 			expect(count).to.equal(2);
 		});
 	});
@@ -64,33 +56,23 @@ describe('Children', () => {
 		it('should throw if more children are passed', () => {
 			// eslint-disable-next-line prefer-arrow-callback
 			expect(function() {
-				render(
-					<Foo>
-						foo
-						<span />
-					</Foo>,
-					scratch
-				);
+				render(<Foo>foo<span /></Foo>, scratch);
 			}).to.throw();
 		});
 	});
 
 	describe('.map', () => {
 		function Foo(props) {
-			let children = Children.map(props.children, child => (
-				<span>{child}</span>
-			));
+			let children = Children.map(props.children, child => <span>{child}</span>);
 			return <div>{children}</div>;
 		}
 
 		it('should iterate over children', () => {
-			render(
-				<Foo>
-					foo<div>bar</div>
-				</Foo>,
-				scratch
-			);
-			let expected = div([span('foo'), span(div('bar'))]);
+			render(<Foo>foo<div>bar</div></Foo>, scratch);
+			let expected = div([
+				span('foo'),
+				span(div('bar'))
+			].join(''));
 			expect(serializeHtml(scratch)).to.equal(expected);
 		});
 
@@ -98,87 +80,21 @@ describe('Children', () => {
 			render(<Foo />, scratch);
 			expect(serializeHtml(scratch)).to.equal('<div></div>');
 		});
-
-		it('should work with children as zero number', () => {
-			const testNumber = 0;
-
-			render(<Foo>{testNumber}</Foo>, scratch);
-			expect(serializeHtml(scratch)).to.equal('<div><span>0</span></div>');
-		});
-
-		it('should flatten result', () => {
-			const ProblemChild = ({ children }) => {
-				return React.Children.map(children, child => {
-					return React.Children.map(child.props.children, x => x);
-				}).filter(React.isValidElement);
-			};
-
-			const App = () => {
-				return (
-					<ProblemChild>
-						<div>
-							<div>1</div>
-							<div>2</div>
-						</div>
-					</ProblemChild>
-				);
-			};
-
-			render(<App />, scratch);
-
-			expect(scratch.textContent).to.equal('12');
-		});
-
-		it('should call with indices', () => {
-			const assertion = [];
-			const ProblemChild = ({ children }) => {
-				return React.Children.map(children, (child, i) => {
-					assertion.push(i);
-					return React.Children.map(child.props.children, (x, j) => {
-						assertion.push(j);
-						return x;
-					});
-				}).filter(React.isValidElement);
-			};
-
-			const App = () => {
-				return (
-					<ProblemChild>
-						<div>
-							<div>1</div>
-							<div>2</div>
-						</div>
-						<div>
-							<div>3</div>
-							<div>4</div>
-						</div>
-					</ProblemChild>
-				);
-			};
-
-			render(<App />, scratch);
-			expect(scratch.textContent).to.equal('1234');
-			expect(assertion.length).to.equal(6);
-		});
 	});
 
 	describe('.forEach', () => {
 		function Foo(props) {
 			let children = [];
-			Children.forEach(props.children, child =>
-				children.push(<span>{child}</span>)
-			);
+			Children.forEach(props.children, child => children.push(<span>{child}</span>));
 			return <div>{children}</div>;
 		}
 
 		it('should iterate over children', () => {
-			render(
-				<Foo>
-					foo<div>bar</div>
-				</Foo>,
-				scratch
-			);
-			let expected = div([span('foo'), span(div('bar'))]);
+			render(<Foo>foo<div>bar</div></Foo>, scratch);
+			let expected = div([
+				span('foo'),
+				span(div('bar'))
+			].join(''));
 			expect(serializeHtml(scratch)).to.equal(expected);
 		});
 	});

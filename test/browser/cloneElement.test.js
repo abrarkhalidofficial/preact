@@ -1,10 +1,10 @@
-import { createElement, cloneElement, createRef } from 'preact';
+import { createElement, cloneElement } from '../../src/index';
 
 /** @jsx createElement */
 
 describe('cloneElement', () => {
 	it('should clone components', () => {
-		function Comp() {}
+		function Comp () {}
 		const instance = <Comp prop1={1}>hello</Comp>;
 		const clone = cloneElement(instance);
 
@@ -15,7 +15,7 @@ describe('cloneElement', () => {
 	});
 
 	it('should merge new props', () => {
-		function Foo() {}
+		function Foo () {}
 		const instance = <Foo prop1={1} prop2={2} />;
 		const clone = cloneElement(instance, { prop1: -1, newProp: -2 });
 
@@ -36,17 +36,6 @@ describe('cloneElement', () => {
 		expect(clone.type).to.equal(instance.type);
 		expect(clone.props).not.to.equal(instance.props);
 		expect(clone.props.children).to.deep.equal(['world', '!']);
-	});
-
-	it('should override children if null is provided as an argument', () => {
-		function Foo() {}
-		const instance = <Foo>foo</Foo>;
-		const clone = cloneElement(instance, { children: 'bar' }, null);
-
-		expect(clone.prototype).to.equal(instance.prototype);
-		expect(clone.type).to.equal(instance.type);
-		expect(clone.props).not.to.equal(instance.props);
-		expect(clone.props.children).to.be.null;
 	});
 
 	it('should override key if specified', () => {
@@ -71,17 +60,5 @@ describe('cloneElement', () => {
 
 		clone = cloneElement(instance, { ref: b });
 		expect(clone.ref).to.equal(b);
-	});
-
-	it('should normalize props (ref)', () => {
-		const div = <div>hello</div>;
-		const clone = cloneElement(div, { ref: createRef() });
-		expect(clone.props.ref).to.equal(undefined);
-	});
-
-	it('should normalize props (key)', () => {
-		const div = <div>hello</div>;
-		const clone = cloneElement(div, { key: 'myKey' });
-		expect(clone.props.key).to.equal(undefined);
 	});
 });

@@ -1,11 +1,13 @@
-import { setupRerender, act } from 'preact/test-utils';
-import { createElement, render, createContext } from 'preact';
-import { useState, useContext, useEffect } from 'preact/hooks';
+import { setupRerender } from 'preact/test-utils';
+import { createElement as h, render } from 'preact';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
+import { useState } from '../../src';
 
-/** @jsx createElement */
+/** @jsx h */
+
 
 describe('useState', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
@@ -20,6 +22,7 @@ describe('useState', () => {
 	afterEach(() => {
 		teardown(scratch);
 	});
+
 
 	it('serves the same state across render calls', () => {
 		const stateHistory = [];
@@ -38,7 +41,7 @@ describe('useState', () => {
 	});
 
 	it('can initialize the state via a function', () => {
-		const initState = sinon.spy(() => 1);
+		const initState = sinon.spy(() => { 1; });
 
 		function Comp() {
 			useState(initState);
@@ -107,12 +110,10 @@ describe('useState', () => {
 	it('can be set by another component', () => {
 		function StateContainer() {
 			const [count, setCount] = useState(0);
-			return (
-				<div>
-					<p>Count: {count}</p>
-					<Increment increment={() => setCount(c => c + 10)} />
-				</div>
-			);
+			return (<div>
+				<p>Count: {count}</p>
+				<Increment increment={() => setCount(c => c + 10)} />
+			</div>);
 		}
 
 		function Increment(props) {
@@ -127,53 +128,6 @@ describe('useState', () => {
 
 		rerender();
 		expect(scratch.textContent).to.include('Count: 10');
-	});
-
-	it('should correctly initialize', () => {
-		let scopedThing = 'hi';
-		let arg;
-
-		function useSomething() {
-			const args = useState(setup);
-			function setup(thing = scopedThing) {
-				arg = thing;
-				return thing;
-			}
-			return args;
-		}
-
-		const App = () => {
-			const [state] = useSomething();
-			return <p>{state}</p>;
-		};
-
-		render(<App />, scratch);
-
-		expect(arg).to.equal('hi');
-		expect(scratch.innerHTML).to.equal('<p>hi</p>');
-	});
-
-	it('should correctly re-initialize when first run threw an error', () => {
-		let hasThrown = false;
-		let setup = sinon.spy(() => {
-			if (!hasThrown) {
-				hasThrown = true;
-				throw new Error('test');
-			} else {
-				return 'hi';
-			}
-		});
-
-		const App = () => {
-			const state = useState(setup)[0];
-			return <p>{state}</p>;
-		};
-
-		expect(() => render(<App />, scratch)).to.throw('test');
-		expect(setup).to.have.been.calledOnce;
-		expect(() => render(<App />, scratch)).not.to.throw();
-		expect(setup).to.have.been.calledTwice;
-		expect(scratch.innerHTML).to.equal('<p>hi</p>');
 	});
 
 	it('should handle queued useState', () => {
@@ -210,140 +164,5 @@ describe('useState', () => {
 		text.click();
 		rerender();
 		expect(scratch.innerHTML).to.equal('');
-	});
-
-	it('should render a second time when the render function updates state', () => {
-		const calls = [];
-		const App = () => {
-			const [greeting, setGreeting] = useState('bye');
-
-			if (greeting === 'bye') {
-				setGreeting('hi');
-			}
-
-			calls.push(greeting);
-
-			return <p>{greeting}</p>;
-		};
-
-		act(() => {
-			render(<App />, scratch);
-		});
-		expect(calls.length).to.equal(2);
-		expect(calls).to.deep.equal(['bye', 'hi']);
-		expect(scratch.textContent).to.equal('hi');
-	});
-
-	// https://github.com/preactjs/preact/issues/3669
-	it('correctly updates with multiple state updates', () => {
-		let simulateClick;
-		function TestWidget() {
-			const [saved, setSaved] = useState(false);
-			const [, setSaving] = useState(false);
-
-			simulateClick = () => {
-				setSaving(true);
-				setSaved(true);
-				setSaving(false);
-			};
-
-			return <div>{saved ? 'Saved!' : 'Unsaved!'}</div>;
-		}
-
-		render(<TestWidget />, scratch);
-		expect(scratch.innerHTML).to.equal('<div>Unsaved!</div>');
-
-		act(() => {
-			simulateClick();
-		});
-
-		expect(scratch.innerHTML).to.equal('<div>Saved!</div>');
-	});
-
-	// https://github.com/preactjs/preact/issues/3674
-	it('ensure we iterate over all hooks', () => {
-		let open, close;
-
-		function TestWidget() {
-			const [, setCounter] = useState(0);
-			const [isOpen, setOpen] = useState(false);
-
-			open = () => {
-				setCounter(42);
-				setOpen(true);
-			};
-
-			close = () => {
-				setOpen(false);
-			};
-
-			return <div>{isOpen ? 'open' : 'closed'}</div>;
-		}
-
-		render(<TestWidget />, scratch);
-		expect(scratch.innerHTML).to.equal('<div>closed</div>');
-
-		act(() => {
-			open();
-		});
-
-		expect(scratch.innerHTML).to.equal('<div>open</div>');
-
-		act(() => {
-			close();
-		});
-		expect(scratch.innerHTML).to.equal('<div>closed</div>');
-	});
-
-	it('does not loop when states are equal after batches', () => {
-		const renderSpy = sinon.spy();
-		const Context = createContext(null);
-
-		function ModalProvider(props) {
-			let [modalCount, setModalCount] = useState(0);
-			renderSpy(modalCount);
-			let context = {
-				modalCount,
-				addModal() {
-					setModalCount(count => count + 1);
-				},
-				removeModal() {
-					setModalCount(count => count - 1);
-				}
-			};
-
-			return (
-				<Context.Provider value={context}>{props.children}</Context.Provider>
-			);
-		}
-
-		function useModal() {
-			let context = useContext(Context);
-			useEffect(() => {
-				context.addModal();
-				return () => {
-					context.removeModal();
-				};
-			}, [context]);
-		}
-
-		function Popover() {
-			useModal();
-			return <div>Popover</div>;
-		}
-
-		function App() {
-			return (
-				<ModalProvider>
-					<Popover />
-				</ModalProvider>
-			);
-		}
-
-		act(() => {
-			render(<App />, scratch);
-		});
-
-		expect(renderSpy).to.be.calledTwice;
 	});
 });

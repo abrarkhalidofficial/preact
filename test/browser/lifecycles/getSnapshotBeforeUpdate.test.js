@@ -1,10 +1,11 @@
 import { setupRerender } from 'preact/test-utils';
-import { createElement, render, Component } from 'preact';
+import { createElement, render, Component } from '../../../src/index';
 import { setupScratch, teardown } from '../../_util/helpers';
 
 /** @jsx createElement */
 
 describe('Lifecycle methods', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
@@ -38,13 +39,17 @@ describe('Lifecycle methods', () => {
 				}
 				getSnapshotBeforeUpdate(prevProps, prevState) {
 					log.push(
-						`getSnapshotBeforeUpdate() prevProps:${prevProps.value} prevState:${prevState.value}`
+						`getSnapshotBeforeUpdate() prevProps:${prevProps.value} prevState:${
+							prevState.value
+						}`,
 					);
 					return 'abc';
 				}
 				componentDidUpdate(prevProps, prevState, snapshot) {
 					log.push(
-						`componentDidUpdate() prevProps:${prevProps.value} prevState:${prevState.value} snapshot:${snapshot}`
+						`componentDidUpdate() prevProps:${prevProps.value} prevState:${
+							prevState.value
+						} snapshot:${snapshot}`,
 					);
 				}
 				render() {
@@ -83,21 +88,21 @@ describe('Lifecycle methods', () => {
 			class MyComponent extends Component {
 				getSnapshotBeforeUpdate(prevProps) {
 					log.push('getSnapshotBeforeUpdate');
-					expect(this.divRef.textContent).to.equal(`value:${prevProps.value}`);
+					expect(this.divRef.textContent).to.equal(
+						`value:${prevProps.value}`,
+					);
 					return 'foobar';
 				}
 				componentDidUpdate(prevProps, prevState, snapshot) {
 					log.push('componentDidUpdate');
-					expect(this.divRef.textContent).to.equal(`value:${this.props.value}`);
+					expect(this.divRef.textContent).to.equal(
+						`value:${this.props.value}`,
+					);
 					expect(snapshot).to.equal('foobar');
 				}
 				render() {
 					log.push('render');
-					return (
-						<div
-							ref={ref => (this.divRef = ref)}
-						>{`value:${this.props.value}`}</div>
-					);
+					return <div ref={ref => this.divRef = ref}>{`value:${this.props.value}`}</div>;
 				}
 			}
 
@@ -114,6 +119,7 @@ describe('Lifecycle methods', () => {
 		});
 
 		it('should be passed the previous props and state', () => {
+
 			/** @type {() => void} */
 			let updateState;
 
@@ -128,10 +134,9 @@ describe('Lifecycle methods', () => {
 					this.state = {
 						value: 0
 					};
-					updateState = () =>
-						this.setState({
-							value: this.state.value + 1
-						});
+					updateState = () => this.setState({
+						value: this.state.value + 1
+					});
 				}
 				static getDerivedStateFromProps(props, state) {
 					// NOTE: Don't do this in real production code!

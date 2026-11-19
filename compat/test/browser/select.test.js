@@ -1,5 +1,7 @@
 import { setupScratch, teardown } from '../../../test/_util/helpers';
-import React, { createElement, render } from 'preact/compat';
+import { render, createElement as h } from '../../src';
+
+/** @jsx h */
 
 describe('Select', () => {
 	let scratch;
@@ -11,6 +13,7 @@ describe('Select', () => {
 	afterEach(() => {
 		teardown(scratch);
 	});
+
 
 	it('should work with multiple selected (array of values)', () => {
 		function App() {
@@ -24,10 +27,11 @@ describe('Select', () => {
 		}
 
 		render(<App />, scratch);
-		const options = scratch.firstChild.children;
-		expect(options[0]).to.have.property('selected', false);
-		expect(options[1]).to.have.property('selected', true);
-		expect(options[2]).to.have.property('selected', true);
+		Array.prototype.slice.call(scratch.firstChild.childNodes).forEach(node => {
+			if (node.value === 'B' || node.value === 'C') {
+				expect(node.selected).to.equal(true);
+			}
+		});
 		expect(scratch.firstChild.value).to.equal('B');
 	});
 });

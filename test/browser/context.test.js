@@ -1,7 +1,7 @@
-import { createElement, render, Component, Fragment } from 'preact';
+import { createElement as h, render, Component, Fragment } from '../../src/index';
 import { setupScratch, teardown } from '../_util/helpers';
 
-/** @jsx createElement */
+/** @jsx h */
 
 describe('context', () => {
 	let scratch;
@@ -24,11 +24,7 @@ describe('context', () => {
 				return CONTEXT;
 			}
 			render(props) {
-				return (
-					<div>
-						<Inner {...props} />
-					</div>
-				);
+				return <div><Inner {...props} /></div>;
 			}
 		}
 		sinon.spy(Outer.prototype, 'getChildContext');
@@ -38,14 +34,12 @@ describe('context', () => {
 			// 	super();
 			// 	inner = this;
 			// }
-			shouldComponentUpdate() {
-				return true;
-			}
+			shouldComponentUpdate() { return true; }
 			componentWillReceiveProps() {}
 			componentWillUpdate() {}
 			componentDidUpdate() {}
 			render(props, state, context) {
-				return <div>{context && context.a}</div>;
+				return <div>{ context && context.a }</div>;
 			}
 		}
 		sinon.spy(Inner.prototype, 'shouldComponentUpdate');
@@ -66,24 +60,12 @@ describe('context', () => {
 
 		expect(Outer.prototype.getChildContext).to.have.been.calledTwice;
 
-		expect(
-			Inner.prototype.shouldComponentUpdate
-		).to.have.been.calledOnce.and.calledWith(PROPS, {}, CONTEXT);
-		expect(Inner.prototype.componentWillReceiveProps).to.have.been.calledWith(
-			PROPS,
-			CONTEXT
-		);
-		expect(Inner.prototype.componentWillUpdate).to.have.been.calledWith(
-			PROPS,
-			{},
-			CONTEXT
-		);
-		expect(Inner.prototype.componentDidUpdate).to.have.been.calledWith(
-			{},
-			{},
-			undefined
-		);
+		expect(Inner.prototype.shouldComponentUpdate).to.have.been.calledOnce.and.calledWith(PROPS, {}, CONTEXT);
+		expect(Inner.prototype.componentWillReceiveProps).to.have.been.calledWith(PROPS, CONTEXT);
+		expect(Inner.prototype.componentWillUpdate).to.have.been.calledWith(PROPS, {}, CONTEXT);
+		expect(Inner.prototype.componentDidUpdate).to.have.been.calledWith({}, {}, undefined);
 		expect(Inner.prototype.render).to.have.been.calledWith(PROPS, {}, CONTEXT);
+
 
 		/* Future:
 		 *  Newly created context objects are *not* currently cloned.
@@ -110,14 +92,12 @@ describe('context', () => {
 		sinon.spy(Outer.prototype, 'getChildContext');
 
 		class Inner extends Component {
-			shouldComponentUpdate() {
-				return true;
-			}
+			shouldComponentUpdate() { return true; }
 			componentWillReceiveProps() {}
 			componentWillUpdate() {}
 			componentDidUpdate() {}
 			render(props, state, context) {
-				return <div>{context && context.a}</div>;
+				return <div>{ context && context.a }</div>;
 			}
 		}
 		sinon.spy(Inner.prototype, 'shouldComponentUpdate');
@@ -138,29 +118,14 @@ describe('context', () => {
 
 		expect(Outer.prototype.getChildContext).to.have.been.calledTwice;
 
-		expect(
-			Inner.prototype.shouldComponentUpdate
-		).to.have.been.calledOnce.and.calledWith(PROPS, {}, CONTEXT);
-		expect(Inner.prototype.componentWillReceiveProps).to.have.been.calledWith(
-			PROPS,
-			CONTEXT
-		);
-		expect(Inner.prototype.componentWillUpdate).to.have.been.calledWith(
-			PROPS,
-			{},
-			CONTEXT
-		);
-		expect(Inner.prototype.componentDidUpdate).to.have.been.calledWith(
-			{},
-			{},
-			undefined
-		);
+		expect(Inner.prototype.shouldComponentUpdate).to.have.been.calledOnce.and.calledWith(PROPS, {}, CONTEXT);
+		expect(Inner.prototype.componentWillReceiveProps).to.have.been.calledWith(PROPS, CONTEXT);
+		expect(Inner.prototype.componentWillUpdate).to.have.been.calledWith(PROPS, {}, CONTEXT);
+		expect(Inner.prototype.componentDidUpdate).to.have.been.calledWith({}, {}, undefined);
 		expect(Inner.prototype.render).to.have.been.calledWith(PROPS, {}, CONTEXT);
 
 		// make sure render() could make use of context.a
-		expect(Inner.prototype.render).to.have.returned(
-			sinon.match({ props: { children: 'a' } })
-		);
+		expect(Inner.prototype.render).to.have.returned(sinon.match({ props: { children: 'a' } }));
 	});
 
 	it('should preserve existing context properties when creating child contexts', () => {
@@ -171,11 +136,7 @@ describe('context', () => {
 				return { outerContext };
 			}
 			render() {
-				return (
-					<div>
-						<Inner />
-					</div>
-				);
+				return <div><Inner /></div>;
 			}
 		}
 
@@ -199,16 +160,8 @@ describe('context', () => {
 
 		render(<Outer />, scratch);
 
-		expect(Inner.prototype.render).to.have.been.calledWith(
-			{},
-			{},
-			{ outerContext }
-		);
-		expect(InnerMost.prototype.render).to.have.been.calledWith(
-			{},
-			{},
-			{ outerContext, innerContext }
-		);
+		expect(Inner.prototype.render).to.have.been.calledWith({}, {}, { outerContext });
+		expect(InnerMost.prototype.render).to.have.been.calledWith({}, {}, { outerContext, innerContext });
 	});
 
 	it('should pass context through Fragments', () => {

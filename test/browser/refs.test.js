@@ -1,8 +1,8 @@
 import { setupRerender } from 'preact/test-utils';
-import { createElement, render, Component, createRef } from 'preact';
+import { createElement as h, render, Component, createRef } from '../../src/index';
 import { setupScratch, teardown } from '../_util/helpers';
 
-/** @jsx createElement */
+/** @jsx h */
 
 // gives call count and argument errors names (otherwise sinon just uses "spy"):
 let spy = (name, ...args) => {
@@ -30,24 +30,9 @@ describe('refs', () => {
 		expect(ref).to.have.been.calledOnce.and.calledWith(scratch.firstChild);
 	});
 
-	it('should not call stale refs', () => {
-		let ref = spy('ref');
-		let ref2 = spy('ref2');
-		let bool = true;
-		const App = () => <div ref={bool ? ref : ref2} />;
-
-		render(<App />, scratch);
-		expect(ref).to.have.been.calledOnce.and.calledWith(scratch.firstChild);
-
-		bool = false;
-		render(<App />, scratch);
-		expect(ref).to.have.been.calledTwice.and.calledWith(null);
-		expect(ref2).to.have.been.calledOnce.and.calledWith(scratch.firstChild);
-	});
-
 	it('should support createRef', () => {
 		const r = createRef();
-		expect(r.current).to.equal(null);
+		expect(r.current).to.equal(undefined);
 
 		render(<div ref={r} />, scratch);
 		expect(r.current).to.equalNode(scratch.firstChild);
@@ -88,27 +73,6 @@ describe('refs', () => {
 		expect(ref).to.have.been.calledOnce.and.calledWith(instance);
 	});
 
-	it('should have a consistent order', () => {
-		const events = [];
-		const App = () => (
-			<div ref={r => events.push('called with ' + (r && r.tagName))}>
-				<h1 ref={r => events.push('called with ' + (r && r.tagName))}>hi</h1>
-			</div>
-		);
-
-		render(<App />, scratch);
-		render(<App />, scratch);
-		expect(events.length).to.equal(6);
-		expect(events).to.deep.equal([
-			'called with H1',
-			'called with DIV',
-			'called with null',
-			'called with H1',
-			'called with null',
-			'called with DIV'
-		]);
-	});
-
 	it('should pass rendered DOM from functional components to ref functions', () => {
 		let ref = spy('ref');
 
@@ -130,8 +94,7 @@ describe('refs', () => {
 		let outer = spy('outer'),
 			inner = spy('inner'),
 			InnermostComponent = 'span',
-			update,
-			inst;
+			update, inst;
 		class Outer extends Component {
 			constructor() {
 				super();
@@ -163,7 +126,6 @@ describe('refs', () => {
 		outer.resetHistory();
 		inner.resetHistory();
 		update();
-		rerender();
 
 		expect(outer, 're-render').not.to.have.been.called;
 		expect(inner, 're-render').not.to.have.been.called;
@@ -171,13 +133,10 @@ describe('refs', () => {
 		inner.resetHistory();
 		InnermostComponent = 'x-span';
 		update();
-		rerender();
 
 		expect(inner, 're-render swap');
 		expect(inner.firstCall, 're-render swap').to.have.been.calledWith(null);
-		expect(inner.secondCall, 're-render swap').to.have.been.calledWith(
-			inst.base
-		);
+		expect(inner.secondCall, 're-render swap').to.have.been.calledWith(inst.base);
 
 		InnermostComponent = 'span';
 		outer.resetHistory();
@@ -216,16 +175,9 @@ describe('refs', () => {
 
 		render(<Outer ref={outer} />, scratch);
 
-		expect(outer, 'outer initial').to.have.been.calledOnce.and.calledWith(
-			outerInst
-		);
-		expect(inner, 'inner initial').to.have.been.calledOnce.and.calledWith(
-			innerInst
-		);
-		expect(
-			innermost,
-			'innerMost initial'
-		).to.have.been.calledOnce.and.calledWith(innerInst.base);
+		expect(outer, 'outer initial').to.have.been.calledOnce.and.calledWith(outerInst);
+		expect(inner, 'inner initial').to.have.been.calledOnce.and.calledWith(innerInst);
+		expect(innermost, 'innerMost initial').to.have.been.calledOnce.and.calledWith(innerInst.base);
 
 		outer.resetHistory();
 		inner.resetHistory();
@@ -242,9 +194,7 @@ describe('refs', () => {
 
 		expect(innermost, 'innerMost swap');
 		expect(innermost.firstCall, 'innerMost swap').to.have.been.calledWith(null);
-		expect(innermost.secondCall, 'innerMost swap').to.have.been.calledWith(
-			innerInst.base
-		);
+		expect(innermost.secondCall, 'innerMost swap').to.have.been.calledWith(innerInst.base);
 		InnermostComponent = 'span';
 
 		outer.resetHistory();
@@ -254,10 +204,7 @@ describe('refs', () => {
 
 		expect(outer, 'outer unmount').to.have.been.calledOnce.and.calledWith(null);
 		expect(inner, 'inner unmount').to.have.been.calledOnce.and.calledWith(null);
-		expect(
-			innermost,
-			'innerMost unmount'
-		).to.have.been.calledOnce.and.calledWith(null);
+		expect(innermost, 'innerMost unmount').to.have.been.calledOnce.and.calledWith(null);
 	});
 
 	// Test for #1143
@@ -274,23 +221,15 @@ describe('refs', () => {
 
 		sinon.spy(Foo.prototype, 'render');
 
-		render(
+		render((
 			<div>
 				<Foo ref={foo} a="a" />
 				<Bar ref={bar} b="b" />
-			</div>,
-			scratch
-		);
+			</div>
+		), scratch);
 
-		expect(Foo.prototype.render).to.have.been.calledWithMatch(
-			{ ref: sinon.match.falsy, a: 'a' },
-			{},
-			{}
-		);
-		expect(Bar).to.have.been.calledWithMatch(
-			{ b: 'b', ref: sinon.match.falsy },
-			{}
-		);
+		expect(Foo.prototype.render).to.have.been.calledWithMatch({ ref: sinon.match.falsy, a: 'a' }, { }, { });
+		expect(Bar).to.have.been.calledWithMatch({ b: 'b', ref: sinon.match.falsy }, { });
 	});
 
 	// Test for #232
@@ -302,7 +241,7 @@ describe('refs', () => {
 				expect(this).to.have.property('outer', outer);
 				expect(this).to.have.property('inner', inner);
 
-				setTimeout(() => {
+				setTimeout( () => {
 					expect(this).to.have.property('outer', null);
 					expect(this).to.have.property('inner', null);
 				});
@@ -310,8 +249,8 @@ describe('refs', () => {
 
 			render() {
 				return (
-					<div id="outer" ref={c => (this.outer = c)}>
-						<div id="inner" ref={c => (this.inner = c)} />
+					<div id="outer" ref={c => this.outer=c}>
+						<div id="inner" ref={c => this.inner=c} />
 					</div>
 				);
 			}
@@ -319,12 +258,7 @@ describe('refs', () => {
 
 		sinon.spy(TestUnmount.prototype, 'componentWillUnmount');
 
-		render(
-			<div>
-				<TestUnmount />
-			</div>,
-			scratch
-		);
+		render(<div><TestUnmount /></div>, scratch);
 		outer = scratch.querySelector('#outer');
 		inner = scratch.querySelector('#inner');
 
@@ -339,11 +273,7 @@ describe('refs', () => {
 
 		class App extends Component {
 			render() {
-				return (
-					<div>
-						<Child />
-					</div>
-				);
+				return <div><Child /></div>;
 			}
 		}
 
@@ -353,41 +283,32 @@ describe('refs', () => {
 				this.state = { show: false };
 				inst = this;
 			}
-			handleMount() {}
+			handleMount(){}
 			render(_, { show }) {
 				if (!show) return <div id="div" ref={this.handleMount} />;
-				return (
-					<span id="span" ref={this.handleMount}>
-						some test content
-					</span>
-				);
+				return <span id="span" ref={this.handleMount}>some test content</span>;
 			}
 		}
 		sinon.spy(Child.prototype, 'handleMount');
 
 		render(<App />, scratch);
-		expect(inst.handleMount).to.have.been.calledOnce.and.calledWith(
-			scratch.querySelector('#div')
-		);
+		expect(inst.handleMount).to.have.been.calledOnce.and.calledWith(scratch.querySelector('#div'));
 		inst.handleMount.resetHistory();
 
 		inst.setState({ show: true });
 		rerender();
 		expect(inst.handleMount).to.have.been.calledTwice;
 		expect(inst.handleMount.firstCall).to.have.been.calledWith(null);
-		expect(inst.handleMount.secondCall).to.have.been.calledWith(
-			scratch.querySelector('#span')
-		);
+		expect(inst.handleMount.secondCall).to.have.been.calledWith(scratch.querySelector('#span'));
 		inst.handleMount.resetHistory();
 
 		inst.setState({ show: false });
 		rerender();
 		expect(inst.handleMount).to.have.been.calledTwice;
 		expect(inst.handleMount.firstCall).to.have.been.calledWith(null);
-		expect(inst.handleMount.secondCall).to.have.been.calledWith(
-			scratch.querySelector('#div')
-		);
+		expect(inst.handleMount.secondCall).to.have.been.calledWith(scratch.querySelector('#div'));
 	});
+
 
 	it('should add refs to components representing DOM nodes with no attributes if they have been pre-rendered', () => {
 		// Simulate pre-render
@@ -404,15 +325,8 @@ describe('refs', () => {
 			}
 		}
 
-		render(
-			<div>
-				<Wrapper ref={c => ref(c.base)} />
-			</div>,
-			scratch
-		);
-		expect(ref).to.have.been.calledOnce.and.calledWith(
-			scratch.firstChild.firstChild
-		);
+		render(<div><Wrapper ref={c => ref(c.base)} /></div>, scratch);
+		expect(ref).to.have.been.calledOnce.and.calledWith(scratch.firstChild.firstChild);
 	});
 
 	// Test for #1177
@@ -435,31 +349,9 @@ describe('refs', () => {
 		expect(input.value).to.equal('foo');
 	});
 
-	it('should correctly set nested child refs', () => {
-		const ref = createRef();
-		const App = ({ open }) =>
-			open ? (
-				<div class="open" key="open">
-					<div ref={ref} />
-				</div>
-			) : (
-				<div class="closes" key="closed">
-					<div ref={ref} />
-				</div>
-			);
-
-		render(<App />, scratch);
-		expect(ref.current).to.not.be.null;
-
-		render(<App open />, scratch);
-		expect(ref.current).to.not.be.null;
-	});
-
 	it('should correctly call child refs for un-keyed children on re-render', () => {
 		let el = null;
-		let ref = e => {
-			el = e;
-		};
+		let ref = e => { el = e; };
 
 		class App extends Component {
 			render({ headerVisible }) {
@@ -477,70 +369,5 @@ describe('refs', () => {
 
 		render(<App />, scratch);
 		expect(el).to.not.be.equal(null);
-	});
-
-	it('should not remove refs for memoized components keyed', () => {
-		const ref = createRef();
-		const element = <div ref={ref}>hey</div>;
-		function App(props) {
-			return <div key={props.count}>{element}</div>;
-		}
-
-		render(<App count={0} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-		render(<App count={1} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-		render(<App count={2} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-	});
-
-	it('should not remove refs for memoized components unkeyed', () => {
-		const ref = createRef();
-		const element = <div ref={ref}>hey</div>;
-		function App(props) {
-			return <div>{element}</div>;
-		}
-
-		render(<App count={0} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-		render(<App count={1} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-		render(<App count={2} />, scratch);
-		expect(ref.current).to.equal(scratch.firstChild.firstChild);
-	});
-
-	// TODO
-	it.skip('should properly call null for memoized components keyed', () => {
-		const calls = [];
-		const element = <div ref={x => calls.push(x)}>hey</div>;
-		function App(props) {
-			return <div key={props.count}>{element}</div>;
-		}
-
-		render(<App count={0} />, scratch);
-		render(<App count={1} />, scratch);
-		render(<App count={2} />, scratch);
-		expect(calls.length).to.equal(5);
-		expect(calls).to.deep.equal([
-			scratch.firstChild.firstChild,
-			null,
-			scratch.firstChild.firstChild,
-			null,
-			scratch.firstChild.firstChild
-		]);
-	});
-
-	it('should properly call null for memoized components unkeyed', () => {
-		const calls = [];
-		const element = <div ref={x => calls.push(x)}>hey</div>;
-		function App(props) {
-			return <div>{element}</div>;
-		}
-
-		render(<App count={0} />, scratch);
-		render(<App count={1} />, scratch);
-		render(<App count={2} />, scratch);
-		expect(calls.length).to.equal(1);
-		expect(calls[0]).to.equal(scratch.firstChild.firstChild);
 	});
 });

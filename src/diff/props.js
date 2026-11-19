@@ -1,5 +1,6 @@
-import { IS_NON_DIMENSIONAL } from '../constants';
+import { IS_NON_DIMENSIONAL, EMPTY_OBJ } from '../constants';
 import options from '../options';
+import { assign } from '../util';
 
 /**
  * Diff the old and new properties of a VNode and apply changes to the DOM node
@@ -8,42 +9,27 @@ import options from '../options';
  * @param {object} newProps The new props
  * @param {object} oldProps The old props
  * @param {boolean} isSvg Whether or not this node is an SVG node
- * @param {boolean} hydrate Whether or not we are in hydration mode
  */
-export function diffProps(dom, newProps, oldProps, isSvg, hydrate) {
+export function diffProps(dom, newProps, oldProps, isSvg) {
 	let i;
+	
+	const keys = Object.keys(newProps).sort();
+	for (i = 0; i < keys.length; i++) {
+		const k = keys[i];
+		if (k!=='children' && k!=='key' && (!oldProps || ((k==='value' || k==='checked') ? dom : oldProps)[k]!==newProps[k])) {
+			setProperty(dom, k, newProps[k], oldProps[k], isSvg);
+		}
+	}
 
 	for (i in oldProps) {
-		if (i !== 'children' && i !== 'key' && !(i in newProps)) {
+		if (i!=='children' && i!=='key' && !(i in newProps)) {
 			setProperty(dom, i, null, oldProps[i], isSvg);
 		}
 	}
-
-	for (i in newProps) {
-		if (
-			(!hydrate || typeof newProps[i] == 'function') &&
-			i !== 'children' &&
-			i !== 'key' &&
-			i !== 'value' &&
-			i !== 'checked' &&
-			oldProps[i] !== newProps[i]
-		) {
-			setProperty(dom, i, newProps[i], oldProps[i], isSvg);
-		}
-	}
 }
 
-function setStyle(style, key, value) {
-	if (key[0] === '-') {
-		style.setProperty(key, value);
-	} else if (value == null) {
-		style[key] = '';
-	} else if (typeof value != 'number' || IS_NON_DIMENSIONAL.test(key)) {
-		style[key] = value;
-	} else {
-		style[key] = value + 'px';
-	}
-}
+const CAMEL_REG = /[A-Z]/g;
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
 
 /**
  * Set a property value on a DOM node
@@ -53,93 +39,56 @@ function setStyle(style, key, value) {
  * @param {*} oldValue The old value the property had
  * @param {boolean} isSvg Whether or not this DOM node is an SVG node or not
  */
-export function setProperty(dom, name, value, oldValue, isSvg) {
-	let useCapture;
+function setProperty(dom, name, value, oldValue, isSvg) {
+	name = isSvg ? (name==='className' ? 'class' : name) : (name==='class' ? 'className' : name);
 
-	o: if (name === 'style') {
-		if (typeof value == 'string') {
-			dom.style.cssText = value;
-		} else {
-			if (typeof oldValue == 'string') {
-				dom.style.cssText = oldValue = '';
+	if (name==='style') {
+		const set = assign(assign({}, oldValue), value);
+		for (let i in set) {
+			if ((value || EMPTY_OBJ)[i] === (oldValue || EMPTY_OBJ)[i]) {
+				continue;
 			}
-
-			if (oldValue) {
-				for (name in oldValue) {
-					if (!(value && name in value)) {
-						setStyle(dom.style, name, '');
-					}
-				}
-			}
-
-			if (value) {
-				for (name in value) {
-					if (!oldValue || value[name] !== oldValue[name]) {
-						setStyle(dom.style, name, value[name]);
-					}
-				}
-			}
+			dom.style.setProperty(
+				(i[0] === '-' && i[1] === '-') ? i : i.replace(CAMEL_REG, '-$&'),
+				(value && (i in value))
+					? (typeof set[i]==='number' && IS_NON_DIMENSIONAL.test(i)===false)
+						? set[i] + 'px'
+						: set[i]
+					: ''
+			);
 		}
 	}
 	// Benchmark for comparison: https://esbench.com/bench/574c954bdb965b9a00965ac6
-	else if (name[0] === 'o' && name[1] === 'n') {
-		useCapture = name !== (name = name.replace(/Capture$/, ''));
-
-		// Infer correct casing for DOM built-in events:
-		if (name.toLowerCase() in dom) name = name.toLowerCase().slice(2);
-		else name = name.slice(2);
-
-		if (!dom._listeners) dom._listeners = {};
-		dom._listeners[name + useCapture] = value;
+	else if (name[0]==='o' && name[1]==='n') {
+		let useCapture = name !== (name=name.replace(/Capture$/, ''));
+		let nameLower = name.toLowerCase();
+		name = (nameLower in dom ? nameLower : name).slice(2);
 
 		if (value) {
-			if (!oldValue) {
-				const handler = useCapture ? eventProxyCapture : eventProxy;
-				dom.addEventListener(name, handler, useCapture);
+			if (!oldValue) dom.addEventListener(name, eventProxy, useCapture);
+		}
+		else {
+			dom.removeEventListener(name, eventProxy, useCapture);
+		}
+		(dom._listeners || (dom._listeners = {}))[name] = value;
+	}
+	else if (name!=='list' && name!=='tagName' && !isSvg && (name in dom)) {
+		dom[name] = value==null ? '' : value;
+	}
+	else if (typeof value!=='function' && name!=='dangerouslySetInnerHTML') {
+		if (name!==(name = name.replace(/^xlink:?/, ''))) {
+			if (value==null || value===false) {
+				dom.removeAttributeNS(XLINK_NS, name.toLowerCase());
 			}
-		} else {
-			const handler = useCapture ? eventProxyCapture : eventProxy;
-			dom.removeEventListener(name, handler, useCapture);
+			else {
+				dom.setAttributeNS(XLINK_NS, name.toLowerCase(), value);
+			}
 		}
-	} else if (name !== 'dangerouslySetInnerHTML') {
-		if (isSvg) {
-			// Normalize incorrect prop usage for SVG:
-			// - xlink:href / xlinkHref --> href (xlink:href was removed from SVG and isn't needed)
-			// - className --> class
-			name = name.replace(/xlink(H|:h)/, 'h').replace(/sName$/, 's');
-		} else if (
-			name !== 'href' &&
-			name !== 'list' &&
-			name !== 'form' &&
-			// Default value in browsers is `-1` and an empty string is
-			// cast to `0` instead
-			name !== 'tabIndex' &&
-			name !== 'download' &&
-			name in dom
-		) {
-			try {
-				dom[name] = value == null ? '' : value;
-				// labelled break is 1b smaller here than a return statement (sorry)
-				break o;
-			} catch (e) {}
-		}
-
-		// ARIA-attributes have a different notion of boolean values.
-		// The value `false` is different from the attribute not
-		// existing on the DOM, so we can't remove it. For non-boolean
-		// ARIA-attributes we could treat false as a removal, but the
-		// amount of exceptions would cost us too many bytes. On top of
-		// that other VDOM frameworks also always stringify `false`.
-
-		if (typeof value === 'function') {
-			// never serialize functions as attribute values
-		} else if (
-			value != null &&
-			(value !== false || (name[0] === 'a' && name[1] === 'r'))
-		) {
-			dom.setAttribute(name, value);
-		} else {
+		else if (value==null || value===false) {
 			dom.removeAttribute(name);
+		}
+		else {
+			dom.setAttribute(name, value);
 		}
 	}
 }
@@ -150,9 +99,5 @@ export function setProperty(dom, name, value, oldValue, isSvg) {
  * @private
  */
 function eventProxy(e) {
-	this._listeners[e.type + false](options.event ? options.event(e) : e);
-}
-
-function eventProxyCapture(e) {
-	this._listeners[e.type + true](options.event ? options.event(e) : e);
+	return this._listeners[e.type](options.event ? options.event(e) : e);
 }

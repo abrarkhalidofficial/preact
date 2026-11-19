@@ -1,39 +1,28 @@
-import {
-	createElement,
-	render as preactRender,
-	cloneElement as preactCloneElement,
-	createRef,
-	Component,
-	createContext,
-	Fragment
-} from 'preact';
-import {
-	useState,
-	useReducer,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useImperativeHandle,
-	useMemo,
-	useCallback,
-	useContext,
-	useDebugValue
-} from 'preact/hooks';
-import { PureComponent } from './PureComponent';
-import { memo } from './memo';
-import { forwardRef } from './forwardRef';
-import { Children } from './Children';
-import { Suspense, lazy } from './suspense';
-import { SuspenseList } from './suspense-list';
-import { createPortal } from './portals';
-import {
-	hydrate,
-	render,
-	REACT_ELEMENT_TYPE,
-	__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED
-} from './render';
+import { hydrate, render as preactRender, cloneElement as preactCloneElement, createRef, h, Component, options, toChildArray, createContext, Fragment } from 'preact';
+import * as hooks from 'preact/hooks';
+export * from 'preact/hooks';
+import { Suspense as _Suspense, lazy as _lazy, catchRender } from './suspense';
+import { assign } from '../../src/util';
 
-const version = '17.0.2'; // trick libraries to think we are react
+const version = '16.8.0'; // trick libraries to think we are react
+
+/* istanbul ignore next */
+const REACT_ELEMENT_TYPE = (typeof Symbol!=='undefined' && Symbol.for && Symbol.for('react.element')) || 0xeac7;
+
+const CAMEL_PROPS = /^(?:accent|alignment|arabic|baseline|cap|clip|color|fill|flood|font|glyph|horiz|marker|overline|paint|stop|strikethrough|stroke|text|underline|unicode|units|v|vector|vert|word|writing|x)[A-Z]/;
+
+let oldEventHook = options.event;
+options.event = e => {
+	/* istanbul ignore next */
+	if (oldEventHook) e = oldEventHook(e);
+	e.persist = () => {};
+	return e.nativeEvent = e;
+};
+
+let oldCatchRender = options._catchRender;
+options._catchRender = (error, newVNode, oldVNode) => (
+	oldCatchRender && oldCatchRender(error, newVNode, oldVNode) || catchRender(error, newVNode, oldVNode)
+);
 
 /**
  * Legacy version of createElement.
@@ -44,12 +33,135 @@ function createFactory(type) {
 }
 
 /**
- * Check if the passed element is a valid (p)react node.
- * @param {*} element The element to check
- * @returns {boolean}
+ * Normalize DOM vnode properties.
+ * @param {import('./internal').VNode} vnode The vnode to normalize props of
+ * @param {object | null | undefined} props props to normalize
  */
-function isValidElement(element) {
-	return !!element && element.$$typeof === REACT_ELEMENT_TYPE;
+function handleElementVNode(vnode, props) {
+	let shouldSanitize, attrs, i;
+	for (i in props) if ((shouldSanitize = CAMEL_PROPS.test(i))) break;
+	if (shouldSanitize) {
+		attrs = vnode.props = {};
+		for (i in props) {
+			attrs[CAMEL_PROPS.test(i) ? i.replace(/([A-Z0-9])/, '-$1').toLowerCase() : i] = props[i];
+		}
+	}
+}
+
+/**
+ * Proxy render() since React returns a Component reference.
+ * @param {import('./internal').VNode} vnode VNode tree to render
+ * @param {import('./internal').PreactElement} parent DOM node to render vnode tree into
+ * @param {() => void} [callback] Optional callback that will be called after rendering
+ * @returns {import('./internal').Component | null} The root component reference or null
+ */
+function render(vnode, parent, callback) {
+	preactRender(vnode, parent);
+	if (typeof callback==='function') callback();
+
+	return vnode ? vnode._component : null;
+}
+
+class ContextProvider {
+	getChildContext() {
+		return this.props.context;
+	}
+	render(props) {
+		return props.children;
+	}
+}
+
+/**
+ * Portal component
+ * @param {object | null | undefined} props
+ */
+function Portal(props) {
+	let wrap = h(ContextProvider, { context: this.context }, props.vnode);
+	let container = props.container;
+
+	if (props.container !== this.container) {
+		hydrate('', container);
+		this.container = container;
+	}
+
+	render(wrap, container);
+	this.componentWillUnmount = () => {
+		render(null, container);
+	};
+	return null;
+}
+
+/**
+ * Create a `Portal` to continue rendering the vnode tree at a different DOM node
+ * @param {import('./internal').VNode} vnode The vnode to render
+ * @param {import('./internal').PreactElement} container The DOM node to continue rendering in to.
+ */
+function createPortal(vnode, container) {
+	return h(Portal, { vnode, container });
+}
+
+const mapFn = (children, fn) => {
+	if (!children) return null;
+	return toChildArray(children).map(fn);
+};
+
+// This API is completely unnecessary for Preact, so it's basically passthrough.
+let Children = {
+	map: mapFn,
+	forEach: mapFn,
+	count(children) {
+		return children ? toChildArray(children).length : 0;
+	},
+	only(children) {
+		children = toChildArray(children);
+		if (children.length!==1) throw new Error('Children.only() expects only one child.');
+		return children[0];
+	},
+	toArray: toChildArray
+};
+
+/**
+ * Wrap `createElement` to apply various vnode normalizations.
+ * @param {import('./internal').VNode["type"]} type The node name or Component constructor
+ * @param {object | null | undefined} [props] The vnode's properties
+ * @param {Array<import('./internal').ComponentChildren>} [children] The vnode's children
+ * @returns {import('./internal').VNode}
+ */
+function createElement(...args) {
+	let vnode = h(...args);
+
+	let type = vnode.type, props = vnode.props;
+	if (typeof type!='function') {
+		if (props.defaultValue) {
+			if (!props.value && props.value!==0) {
+				props.value = props.defaultValue;
+			}
+			delete props.defaultValue;
+		}
+
+		if (Array.isArray(props.value) && props.multiple && type==='select') {
+			toChildArray(props.children).forEach((child) => {
+				if (props.value.indexOf(child.props.value)!=-1) {
+					child.props.selected = true;
+				}
+			});
+			delete props.value;
+		}
+		handleElementVNode(vnode, props);
+	}
+
+	vnode.preactCompatNormalized = false;
+	return normalizeVNode(vnode);
+}
+
+/**
+ * Normalize a vnode
+ * @param {import('./internal').VNode} vnode
+ */
+function normalizeVNode(vnode) {
+	vnode.preactCompatNormalized = true;
+	applyClassName(vnode);
+	return vnode;
 }
 
 /**
@@ -57,16 +169,55 @@ function isValidElement(element) {
  * all vnode normalizations.
  * @param {import('./internal').VNode} element The vnode to clone
  * @param {object} props Props to add when cloning
- * @param {Array<import('./internal').ComponentChildren>} rest Optional component children
+ * @param {Array<import('./internal').ComponentChildren} rest Optional component children
  */
 function cloneElement(element) {
 	if (!isValidElement(element)) return element;
-	return preactCloneElement.apply(null, arguments);
+	let vnode = normalizeVNode(preactCloneElement.apply(null, arguments));
+	vnode.$$typeof = REACT_ELEMENT_TYPE;
+	return vnode;
+}
+
+/**
+ * Check if the passed element is a valid (p)react node.
+ * @param {*} element The element to check
+ * @returns {boolean}
+ */
+function isValidElement(element) {
+	return !!element && element.$$typeof===REACT_ELEMENT_TYPE;
+}
+
+/**
+ * Normalize event handlers like react does. Most famously it uses `onChange` for any input element.
+ * @param {import('./internal').VNode} vnode The vnode to normalize events on
+ */
+function applyEventNormalization({ type, props }) {
+	if (!props || typeof type!='string') return;
+	let newProps = {};
+	for (let i in props) {
+		newProps[i.toLowerCase()] = i;
+	}
+	if (newProps.ondoubleclick) {
+		props.ondblclick = props[newProps.ondoubleclick];
+		delete props[newProps.ondoubleclick];
+	}
+	if (newProps.onbeforeinput) {
+		props.onbeforeinput = props[newProps.onbeforeinput];
+		delete props[newProps.onbeforeinput];
+	}
+	// for *textual inputs* (incl textarea), normalize `onChange` -> `onInput`:
+	if (newProps.onchange && (type==='textarea' || (type.toLowerCase()==='input' && !/^fil|che|rad/i.test(props.type)))) {
+		let normalized = newProps.oninput || 'oninput';
+		if (!props[normalized]) {
+			props[normalized] = props[newProps.onchange];
+			delete props[newProps.onchange];
+		}
+	}
 }
 
 /**
  * Remove a component tree from the DOM, including state and event handlers.
- * @param {import('./internal').PreactElement} container
+ * @param {Element | Document | ShadowRoot | DocumentFragment} container
  * @returns {boolean}
  */
 function unmountComponentAtNode(container) {
@@ -78,102 +229,151 @@ function unmountComponentAtNode(container) {
 }
 
 /**
+ * Alias `class` prop to `className` if available
+ * @param {import('./internal').VNode} vnode
+ */
+function applyClassName(vnode) {
+	let a = vnode.props;
+	if (a.class || a.className) {
+		classNameDescriptor.enumerable = 'className' in a;
+		if (a.className) a.class = a.className;
+		Object.defineProperty(a, 'className', classNameDescriptor);
+	}
+}
+
+let classNameDescriptor = {
+	configurable: true,
+	get() { return this.class; }
+};
+
+/**
+ * Check if two objects have a different shape
+ * @param {object} a
+ * @param {object} b
+ * @returns {boolean}
+ */
+function shallowDiffers(a, b) {
+	for (let i in a) if (!(i in b)) return true;
+	for (let i in b) if (a[i]!==b[i]) return true;
+	return false;
+}
+
+/**
  * Get the matching DOM node for a component
  * @param {import('./internal').Component} component
  * @returns {import('./internal').PreactElement | null}
  */
 function findDOMNode(component) {
-	return (
-		(component &&
-			(component.base || (component.nodeType === 1 && component))) ||
-		null
-	);
+	return component && (component.base || component.nodeType === 1 && component) || null;
 }
+
+/**
+ * Component class with a predefined `shouldComponentUpdate` implementation
+ */
+class PureComponent extends Component {
+	constructor(props) {
+		super(props);
+		// Some third-party libraries check if this property is present
+		this.isPureReactComponent = true;
+	}
+
+	shouldComponentUpdate(props, state) {
+		return shallowDiffers(this.props, props) || shallowDiffers(this.state, state);
+	}
+}
+
+// Some libraries like `react-virtualized` explicitely check for this.
+Component.prototype.isReactComponent = {};
+
+/**
+ * Memoize a component, so that it only updates when the props actually have
+ * changed. This was previously known as `React.pure`.
+ * @param {import('./internal').FunctionalComponent} c functional component
+ * @param {(prev: object, next: object) => boolean} [comparer] Custom equality function
+ * @returns {import('./internal').FunctionalComponent}
+ */
+function memo(c, comparer) {
+	function shouldUpdate(nextProps) {
+		let ref = this.props.ref;
+		let updateRef = ref==nextProps.ref;
+		if (!updateRef) {
+			ref.call ? ref(null) : (ref.current = null);
+		}
+		return (!comparer
+			? shallowDiffers(this.props, nextProps)
+			: !comparer(this.props, nextProps)) || !updateRef;
+	}
+
+	function Memoed(props) {
+		this.shouldComponentUpdate = shouldUpdate;
+		return h(c, assign({}, props));
+	}
+	Memoed.displayName = 'Memo(' + (c.displayName || c.name) + ')';
+	Memoed._forwarded = true;
+	return Memoed;
+}
+
+// Patch in `UNSAFE_*` lifecycle hooks
+function setUnsafeDescriptor(obj, key) {
+	Object.defineProperty(obj.prototype, 'UNSAFE_' + key, {
+		configurable: true,
+		get() { return this[key]; },
+		set(v) { this[key] = v; }
+	});
+}
+
+setUnsafeDescriptor(Component, 'componentWillMount');
+setUnsafeDescriptor(Component, 'componentWillReceiveProps');
+setUnsafeDescriptor(Component, 'componentWillUpdate');
+
+/**
+ * Pass ref down to a child. This is mainly used in libraries with HOCs that
+ * wrap components. Using `forwardRef` there is an easy way to get a reference
+ * of the wrapped component instead of one of the wrapper itself.
+ * @param {import('./internal').ForwardFn} fn
+ * @returns {import('./internal').FunctionalComponent}
+ */
+function forwardRef(fn) {
+	function Forwarded(props) {
+		let ref = props.ref;
+		delete props.ref;
+		return fn(props, ref);
+	}
+	Forwarded._forwarded = true;
+	Forwarded.displayName = 'ForwardRef(' + (fn.displayName || fn.name) + ')';
+	return Forwarded;
+}
+
+let oldVNodeHook = options.vnode;
+options.vnode = vnode => {
+	vnode.$$typeof = REACT_ELEMENT_TYPE;
+
+	applyEventNormalization(vnode);
+	let type = vnode.type;
+	if (type && type._forwarded && vnode.ref) {
+		vnode.props.ref = vnode.ref;
+		vnode.ref = null;
+	}
+	/* istanbul ignore next */
+	if (oldVNodeHook) oldVNodeHook(vnode);
+};
 
 /**
  * Deprecated way to control batched rendering inside the reconciler, but we
  * already schedule in batches inside our rendering code
- * @template Arg
- * @param {(arg: Arg) => void} callback function that triggers the updated
- * @param {Arg} [arg] Optional argument that can be passed to the callback
+ * @param {(a) => void} callback function that triggers the updatd
+ * @param {*} [arg] Optional argument that can be passed to the callback
  */
 // eslint-disable-next-line camelcase
-const unstable_batchedUpdates = (callback, arg) => callback(arg);
-
-/**
- * In React, `flushSync` flushes the entire tree and forces a rerender. It's
- * implmented here as a no-op.
- * @template Arg
- * @template Result
- * @param {(arg: Arg) => Result} callback function that runs before the flush
- * @param {Arg} [arg] Optional arugment that can be passed to the callback
- * @returns
- */
-const flushSync = (callback, arg) => callback(arg);
-
-/**
- * Strict Mode is not implemented in Preact, so we provide a stand-in for it
- * that just renders its children without imposing any restrictions.
- */
-const StrictMode = Fragment;
-
-export function startTransition(cb) {
-	cb();
+function unstable_batchedUpdates(callback, arg) {
+	callback(arg);
 }
 
-export function useDeferredValue(val) {
-	return val;
-}
-
-export function useTransition() {
-	return [false, startTransition];
-}
-
-// TODO: in theory this should be done after a VNode is diffed as we want to insert
-// styles/... before it attaches
-export const useInsertionEffect = useLayoutEffect;
-
-/**
- * This is taken from https://github.com/facebook/react/blob/main/packages/use-sync-external-store/src/useSyncExternalStoreShimClient.js#L84
- * on a high level this cuts out the warnings, ... and attempts a smaller implementation
- */
-export function useSyncExternalStore(subscribe, getSnapshot) {
-	const value = getSnapshot();
-
-	const [{ _instance }, forceUpdate] = useState({
-		_instance: { _value: value, _getSnapshot: getSnapshot }
-	});
-
-	useLayoutEffect(() => {
-		_instance._value = value;
-		_instance._getSnapshot = getSnapshot;
-
-		if (_instance._value !== getSnapshot()) {
-			forceUpdate({ _instance });
-		}
-	}, [subscribe, value, getSnapshot]);
-
-	useEffect(() => {
-		if (_instance._value !== _instance._getSnapshot()) {
-			forceUpdate({ _instance });
-		}
-
-		return subscribe(() => {
-			if (_instance._value !== _instance._getSnapshot()) {
-				forceUpdate({ _instance });
-			}
-		});
-	}, [subscribe]);
-
-	return value;
-}
-
-export * from 'preact/hooks';
 export {
 	version,
 	Children,
 	render,
-	hydrate,
+	render as hydrate,
 	unmountComponentAtNode,
 	createPortal,
 	createElement,
@@ -188,37 +388,19 @@ export {
 	PureComponent,
 	memo,
 	forwardRef,
-	flushSync,
 	// eslint-disable-next-line camelcase
-	unstable_batchedUpdates,
-	StrictMode,
-	Suspense,
-	SuspenseList,
-	lazy,
-	__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED
+	unstable_batchedUpdates
 };
 
+export const Suspense = _Suspense;
+export const lazy = _lazy;
+
 // React copies the named exports to the default one.
-export default {
-	useState,
-	useReducer,
-	useEffect,
-	useLayoutEffect,
-	useInsertionEffect,
-	useTransition,
-	useDeferredValue,
-	useSyncExternalStore,
-	startTransition,
-	useRef,
-	useImperativeHandle,
-	useMemo,
-	useCallback,
-	useContext,
-	useDebugValue,
+export default assign({
 	version,
 	Children,
 	render,
-	hydrate,
+	hydrate: render,
 	unmountComponentAtNode,
 	createPortal,
 	createElement,
@@ -233,11 +415,5 @@ export default {
 	PureComponent,
 	memo,
 	forwardRef,
-	flushSync,
-	unstable_batchedUpdates,
-	StrictMode,
-	Suspense,
-	SuspenseList,
-	lazy,
-	__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED
-};
+	unstable_batchedUpdates
+}, hooks);

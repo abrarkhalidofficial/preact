@@ -1,23 +1,19 @@
-import { createElement, render, createRef, Component, Fragment } from 'preact';
-import {
-	setupScratch,
-	teardown,
-	serializeHtml
-} from '../../../test/_util/helpers';
-import './fakeDevTools';
-import 'preact/debug';
+import { createElement as h, options, render, createRef, Component, Fragment } from 'preact';
+import { lazy, Suspense } from 'preact/compat';
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'preact/hooks';
+import { act, setupRerender } from 'preact/test-utils';
+import { setupScratch, teardown, clearOptions, serializeHtml } from '../../../test/_util/helpers';
+import { serializeVNode, initDebug } from '../../src/debug';
 import * as PropTypes from 'prop-types';
 
-// eslint-disable-next-line no-duplicate-imports
-import { resetPropWarnings } from 'preact/debug';
-
-const h = createElement;
-/** @jsx createElement */
+/** @jsx h */
 
 describe('debug', () => {
 	let scratch;
 	let errors = [];
 	let warnings = [];
+
+	let diffSpy;
 
 	beforeEach(() => {
 		errors = [];
@@ -25,17 +21,25 @@ describe('debug', () => {
 		scratch = setupScratch();
 		sinon.stub(console, 'error').callsFake(e => errors.push(e));
 		sinon.stub(console, 'warn').callsFake(w => warnings.push(w));
+
+		clearOptions();
+		diffSpy = sinon.spy();
+		options._diff = diffSpy;
+
+		initDebug();
 	});
 
 	afterEach(() => {
+
 		/** @type {*} */
 		(console.error).restore();
-		console.warn.restore();
+		(console.warn).restore();
 		teardown(scratch);
 	});
 
-	it('should initialize devtools', () => {
-		expect(window.__PREACT_DEVTOOLS__.attachPreact).to.have.been.called;
+	it('should call previous options', () => {
+		render(<div />, scratch);
+		expect(diffSpy, 'diff').to.have.been.called;
 	});
 
 	it('should print an error on rendering on undefined parent', () => {
@@ -54,14 +58,9 @@ describe('debug', () => {
 		let fn = () => render(<App />, 6);
 		expect(fn).to.throw(/<App/);
 		expect(fn).to.throw(/6/);
-
 		fn = () => render(<App />, {});
 		expect(fn).to.throw(/<App/);
 		expect(fn).to.throw(/[object Object]/);
-
-		fn = () => render(<Fragment />, 'badroot');
-		expect(fn).to.throw(/<Fragment/);
-		expect(fn).to.throw(/badroot/);
 	});
 
 	it('should print an error with (class) component name when available', () => {
@@ -82,17 +81,6 @@ describe('debug', () => {
 	it('should print an error on invalid object component', () => {
 		let fn = () => render(h({}), scratch);
 		expect(fn).to.throw(/createElement/);
-	});
-
-	it('should print an error when component is an array', () => {
-		let fn = () => render(h([<div />]), scratch);
-		expect(fn).to.throw(/createElement/);
-	});
-
-	it('should print an error on double jsx conversion', () => {
-		let Foo = <div />;
-		let fn = () => render(h(<Foo />), scratch);
-		expect(fn).to.throw(/JSX twice/);
 	});
 
 	it('should add __source to the vnode in debug mode.', () => {
@@ -117,127 +105,125 @@ describe('debug', () => {
 		expect(vnode.props.__self).to.be.undefined;
 	});
 
-	it('should warn when accessing certain attributes', () => {
-		const vnode = h('div', null);
-
-		// Push into an array to avoid empty statements being dead code eliminated
-		const res = [];
-		res.push(vnode);
-		res.push(vnode.attributes);
-		expect(console.warn).to.be.calledOnce;
-		expect(console.warn.args[0]).to.match(/use vnode.props/);
-		res.push(vnode.nodeName);
-		expect(console.warn).to.be.calledTwice;
-		expect(console.warn.args[1]).to.match(/use vnode.type/);
-		res.push(vnode.children);
-		expect(console.warn).to.be.calledThrice;
-		expect(console.warn.args[2]).to.match(/use vnode.props.children/);
-
-		// Should only warn once
-		res.push(vnode.attributes);
-		expect(console.warn).to.be.calledThrice;
-		res.push(vnode.nodeName);
-		expect(console.warn).to.be.calledThrice;
-		res.push(vnode.children);
-		expect(console.warn).to.be.calledThrice;
-
-		vnode.attributes = {};
-		expect(console.warn.args[3]).to.match(/use vnode.props/);
-		vnode.nodeName = '';
-		expect(console.warn.args[4]).to.match(/use vnode.type/);
-		vnode.children = [];
-		expect(console.warn.args[5]).to.match(/use vnode.props.children/);
-
-		// Should only warn once
-		vnode.attributes = {};
-		expect(console.warn.args.length).to.equal(6);
-		vnode.nodeName = '';
-		expect(console.warn.args.length).to.equal(6);
-		vnode.children = [];
-		expect(console.warn.args.length).to.equal(6);
-
-		// Mark res as used, otherwise it will be dead code eliminated
-		expect(res.length).to.equal(7);
-	});
-
-	it('should warn when calling setState inside the constructor', () => {
-		class Foo extends Component {
-			constructor(props) {
-				super(props);
-				this.setState({ foo: true });
-			}
-			render() {
-				return <div>foo</div>;
-			}
-		}
-
-		render(<Foo />, scratch);
-		expect(console.warn).to.be.calledOnce;
-		expect(console.warn.args[0]).to.match(/no-op/);
-	});
-
-	it('should NOT warn when calling setState inside the cWM', () => {
-		class Foo extends Component {
+	it('should throw an error when using a hook outside a render', () => {
+		class App extends Component {
 			componentWillMount() {
-				this.setState({ foo: true });
+				useState();
 			}
+
 			render() {
-				return <div>foo</div>;
+				return <p>test</p>;
 			}
 		}
-
-		render(<Foo />, scratch);
-		expect(console.warn).to.not.be.called;
+		const fn = () => act(() => render(<App />, scratch));
+		expect(fn).to.throw(/Hook can only be invoked from render/);
 	});
 
-	it('should warn when calling forceUpdate inside the constructor', () => {
-		class Foo extends Component {
-			constructor(props) {
-				super(props);
-				this.forceUpdate();
-			}
-			render() {
-				return <div>foo</div>;
-			}
-		}
-
-		render(<Foo />, scratch);
-		expect(console.warn).to.be.calledOnce;
-		expect(console.warn.args[0]).to.match(/no-op/);
+	it('should throw an error when invoked outside of a component', () => {
+		const fn = () => act(() => useState());
+		expect(fn).to.throw(/Hook can only be invoked from render/);
 	});
 
-	it('should warn when calling forceUpdate on an unmounted Component', () => {
-		let forceUpdate;
-
-		class Foo extends Component {
-			constructor(props) {
-				super(props);
-				forceUpdate = () => this.forceUpdate();
-			}
-			render() {
-				return <div>foo</div>;
-			}
-		}
-
-		render(<Foo />, scratch);
-		forceUpdate();
-		expect(console.warn).to.not.be.called;
-
-		render(null, scratch);
-
-		forceUpdate();
-		expect(console.warn).to.be.calledOnce;
-		expect(console.warn.args[0]).to.match(/no-op/);
+	it('should warn for argumentless useEffect hooks', () => {
+		const App = () => {
+			const [state] = useState('test');
+			useEffect(() => 'test');
+			return (
+				<p>{state}</p>
+			);
+		};
+		render(<App />, scratch);
+		expect(warnings[0]).to.match(/You should provide an array of arguments/);
+		render(<App />, scratch);
+		expect(warnings[1]).to.be.undefined;
 	});
 
-	it('should print an error when child is a plain object', () => {
-		let fn = () => render(<div>{{}}</div>, scratch);
-		expect(fn).to.throw(/not valid/);
+	it('should warn for argumentless useLayoutEffect hooks', () => {
+		const App = () => {
+			const [state] = useState('test');
+			useLayoutEffect(() => 'test');
+			return (
+				<p>{state}</p>
+			);
+		};
+		render(<App />, scratch);
+		expect(warnings[0]).to.match(/You should provide an array of arguments/);
+		render(<App />, scratch);
+		expect(warnings[1]).to.be.undefined;
+	});
+
+	it('should not warn for argumented effect hooks', () => {
+		const App = () => {
+			const [state] = useState('test');
+			useLayoutEffect(() => 'test', []);
+			useEffect(() => 'test', [state]);
+			return (
+				<p>{state}</p>
+			);
+		};
+		const fn = () => act(() => render(<App />, scratch));
+		expect(fn).to.not.throw();
+	});
+
+	it('should print an error on double jsx conversion', () => {
+		let Foo = <div />;
+		let fn = () => render(h(<Foo />), scratch);
+		expect(fn).to.throw(/createElement/);
+	});
+
+	it('Should throw errors when accessing certain attributes', () => {
+		let Foo = () => <div />;
+		const oldOptionsVnode = options.vnode;
+		options.vnode = (vnode) => {
+			oldOptionsVnode(vnode);
+			expect(() => vnode).to.not.throw();
+			expect(() => vnode.attributes).to.throw(/use vnode.props/);
+			expect(() => vnode.nodeName).to.throw(/use vnode.type/);
+			expect(() => vnode.children).to.throw(/use vnode.props.children/);
+			expect(() => vnode.attributes = {}).to.throw(/use vnode.props/);
+			expect(() => vnode.nodeName = 'test').to.throw(/use vnode.type/);
+			expect(() => vnode.children = [<div />]).to.throw(/use vnode.props.children/);
+		};
+		render(<Foo />, scratch);
+		options.vnode = oldOptionsVnode;
+	});
+
+	it('should print an error when component is an array', () => {
+		let fn = () => render(h([<div />]), scratch);
+		expect(fn).to.throw(/createElement/);
+	});
+
+	it('should warn for useless useMemo calls', () => {
+		const App = () => {
+			const [people] = useState([40, 20, 60, 80]);
+			const retiredPeople = useMemo(() => people.filter(x => x >= 60));
+			const cb = useCallback(() => () => 'test');
+			return <p onClick={cb}>{retiredPeople.map(x => x)}</p>;
+		};
+		render(<App />, scratch);
+		expect(warnings.length).to.equal(2);
+	});
+
+	it('should warn when non-array args is passed', () => {
+		const App = () => {
+			const foo = useMemo(() => 'foo', 12);
+			return <p>{foo}</p>;
+		};
+		render(<App />, scratch);
+		expect(warnings[0]).to.match(/without passing arguments/);
 	});
 
 	it('should print an error on invalid refs', () => {
 		let fn = () => render(<div ref="a" />, scratch);
 		expect(fn).to.throw(/createRef/);
+
+		// Allow strings for compat
+		let vnode = <div ref="a" />;
+
+		/** @type {*} */
+		(vnode).$$typeof = 'foo';
+		render(vnode, scratch);
+		expect(console.error).to.not.be.called;
 	});
 
 	it('should not print for null as a handler', () => {
@@ -275,38 +261,20 @@ describe('debug', () => {
 		const ListItem = props => <li>{props.children}</li>;
 
 		it('should print an error on duplicate keys with DOM nodes', () => {
-			render(
-				<div>
-					<span key="a" />
-					<span key="a" />
-				</div>,
-				scratch
-			);
+			render(<div><span key="a" /><span key="a" /></div>, scratch);
 			expect(console.error).to.be.calledOnce;
 		});
 
 		it('should allow distinct object keys', () => {
 			const A = { is: 'A' };
 			const B = { is: 'B' };
-			render(
-				<div>
-					<span key={A} />
-					<span key={B} />
-				</div>,
-				scratch
-			);
+			render(<div><span key={A} /><span key={B} /></div>, scratch);
 			expect(console.error).not.to.be.called;
 		});
 
 		it('should print an error for duplicate object keys', () => {
 			const A = { is: 'A' };
-			render(
-				<div>
-					<span key={A} />
-					<span key={A} />
-				</div>,
-				scratch
-			);
+			render(<div><span key={A} /><span key={A} /></div>, scratch);
 			expect(console.error).to.be.calledOnce;
 		});
 
@@ -334,7 +302,7 @@ describe('debug', () => {
 							<ListItem key="a">a</ListItem>
 							<ListItem key="b">b</ListItem>
 							<Fragment key="b">
-								{/* Should be okay to duplicate keys since these are inside a Fragment */}
+								{/* Should be okay to dupliate keys since these are inside a Fragment */}
 								<ListItem key="a">c</ListItem>
 								<ListItem key="b">d</ListItem>
 								<ListItem key="c">e</ListItem>
@@ -351,176 +319,60 @@ describe('debug', () => {
 		});
 	});
 
-	describe('table markup', () => {
-		it('missing <tbody>/<thead>/<tfoot>/<table>', () => {
-			const Table = () => (
-				<tr>
-					<td>hi</td>
-				</tr>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.be.calledOnce;
+	describe('serializeVNode', () => {
+		it('should prefer a function component\'s displayName', () => {
+			function Foo() {
+				return <div />;
+			}
+			Foo.displayName = 'Bar';
+
+			expect(serializeVNode(<Foo />)).to.equal('<Bar />');
 		});
 
-		it('missing <table> with <thead>', () => {
-			const Table = () => (
-				<thead>
-					<tr>
-						<td>hi</td>
-					</tr>
-				</thead>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.be.calledOnce;
+		it('should prefer a class component\'s displayName', () => {
+			class Bar extends Component {
+				render() {
+					return <div />;
+				}
+			}
+			Bar.displayName = 'Foo';
+
+			expect(serializeVNode(<Bar />)).to.equal('<Foo />');
 		});
 
-		it('missing <table> with <tbody>', () => {
-			const Table = () => (
-				<tbody>
-					<tr>
-						<td>hi</td>
-					</tr>
-				</tbody>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.be.calledOnce;
+		it('should serialize vnodes without children', () => {
+			expect(serializeVNode(<br />)).to.equal('<br />');
 		});
 
-		it('missing <table> with <tfoot>', () => {
-			const Table = () => (
-				<tfoot>
-					<tr>
-						<td>hi</td>
-					</tr>
-				</tfoot>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.be.calledOnce;
+		it('should serialize vnodes with children', () => {
+			expect(serializeVNode(<div>Hello World</div>)).to.equal('<div>..</div>');
 		});
 
-		it('missing <tr>', () => {
-			const Table = () => (
-				<table>
-					<tbody>
-						<td>Hi</td>
-					</tbody>
-				</table>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.be.calledOnce;
+		it('should serialize components', () => {
+			function Foo() {
+				return <div />;
+			}
+			expect(serializeVNode(<Foo />)).to.equal('<Foo />');
 		});
 
-		it('missing <tr> with td component', () => {
-			const Cell = ({ children }) => <td>{children}</td>;
-			const Table = () => (
-				<table>
-					<tbody>
-						<Cell>Hi</Cell>
-					</tbody>
-				</table>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.be.calledOnce;
-		});
+		it('should serialize props', () => {
+			expect(serializeVNode(<div class="foo" />)).to.equal('<div class="foo" />');
 
-		it('missing <tr> with th component', () => {
-			const Cell = ({ children }) => <th>{children}</th>;
-			const Table = () => (
-				<table>
-					<tbody>
-						<Cell>Hi</Cell>
-					</tbody>
-				</table>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.be.calledOnce;
-		});
+			let noop = () => {};
+			expect(serializeVNode(<div onClick={noop} />))
+				.to.equal('<div onClick="function noop() {}" />');
 
-		it('Should accept <td> instead of <th> in <thead>', () => {
-			const Table = () => (
-				<table>
-					<thead>
-						<tr>
-							<td>Hi</td>
-						</tr>
-					</thead>
-				</table>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.not.be.called;
-		});
+			function Foo(props) {
+				return props.foo;
+			}
 
-		it('Accepts well formed table with TD components', () => {
-			const Cell = ({ children }) => <td>{children}</td>;
-			const Table = () => (
-				<table>
-					<thead>
-						<tr>
-							<th>Head</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>Body</td>
-						</tr>
-					</tbody>
-					<tfoot>
-						<tr>
-							<Cell>Body</Cell>
-						</tr>
-					</tfoot>
-				</table>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.not.be.called;
-		});
-
-		it('Accepts well formed table', () => {
-			const Table = () => (
-				<table>
-					<thead>
-						<tr>
-							<th>Head</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>Body</td>
-						</tr>
-					</tbody>
-					<tfoot>
-						<tr>
-							<td>Body</td>
-						</tr>
-					</tfoot>
-				</table>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.not.be.called;
-		});
-
-		it('Accepts minimal well formed table', () => {
-			const Table = () => (
-				<table>
-					<tr>
-						<th>Head</th>
-					</tr>
-					<tr>
-						<td>Body</td>
-					</tr>
-				</table>
-			);
-			render(<Table />, scratch);
-			expect(console.error).to.not.be.called;
+			expect(serializeVNode(<Foo foo={[1, 2, 3]} />))
+				.to.equal('<Foo foo="1,2,3" />');
 		});
 	});
 
 	describe('PropTypes', () => {
-		beforeEach(() => {
-			resetPropWarnings();
-		});
-
-		it("should fail if props don't match prop-types", () => {
+		it('should fail if props don\'t match prop-types', () => {
 			function Foo(props) {
 				return <h1>{props.text}</h1>;
 			}
@@ -529,42 +381,10 @@ describe('debug', () => {
 				text: PropTypes.string.isRequired
 			};
 
-			render(<Foo text={123} />, scratch);
+			render(<Foo />, scratch);
 
 			expect(console.error).to.be.calledOnce;
-
-			// The message here may change when the "prop-types" library is updated,
-			// but we check it exactly to make sure all parameters were supplied
-			// correctly.
-			expect(console.error).to.have.been.calledOnceWith(
-				sinon.match(
-					/^Failed prop type: Invalid prop `text` of type `number` supplied to `Foo`, expected `string`\.\n {2}in Foo \(at (.*)[/\\]debug[/\\]test[/\\]browser[/\\]debug\.test\.js:[0-9]+\)$/m
-				)
-			);
-		});
-
-		it('should only log a given prop type error once', () => {
-			function Foo(props) {
-				return <h1>{props.text}</h1>;
-			}
-
-			Foo.propTypes = {
-				text: PropTypes.string.isRequired,
-				count: PropTypes.number
-			};
-
-			// Trigger the same error twice. The error should only be logged
-			// once.
-			render(<Foo text={123} />, scratch);
-			render(<Foo text={123} />, scratch);
-
-			expect(console.error).to.be.calledOnce;
-
-			// Trigger a different error. This should result in a new log
-			// message.
-			console.error.resetHistory();
-			render(<Foo text="ok" count="123" />, scratch);
-			expect(console.error).to.be.calledOnce;
+			expect(errors[0].includes('required')).to.equal(true);
 		});
 
 		it('should render with error logged when validator gets signal and throws exception', () => {
@@ -573,9 +393,7 @@ describe('debug', () => {
 			}
 
 			Baz.propTypes = {
-				unhappy: function alwaysThrows(obj, key) {
-					if (obj[key] === 'signal') throw Error('got prop');
-				}
+				unhappy: function alwaysThrows(obj, key) { if (obj[key] === 'signal') throw Error('got prop'); }
 			};
 
 			render(<Baz unhappy={'signal'} />, scratch);
@@ -596,6 +414,119 @@ describe('debug', () => {
 
 			render(<Bar text="foo" />, scratch);
 			expect(console.error).to.not.be.called;
+		});
+
+		it('should validate propTypes inside lazy()', () => {
+			const rerender = setupRerender();
+
+			function Baz(props) {
+				return <h1>{props.unhappy}</h1>;
+			}
+
+			Baz.propTypes = {
+				unhappy: function alwaysThrows(obj, key) { if (obj[key] === 'signal') throw Error('got prop inside lazy()'); }
+			};
+
+
+			const loader = Promise.resolve({ default: Baz });
+			const LazyBaz = lazy(() => loader);
+
+			const suspense = (
+				<Suspense fallback={<div>fallback...</div>}>
+					<LazyBaz unhappy="signal" />
+				</Suspense>
+			);
+			render(suspense, scratch);
+
+			expect(console.error).to.not.be.called;
+
+			return loader
+				.then(() => Promise.all(suspense._component._suspensions))
+				.then(() => {
+					rerender();
+					expect(errors.length).to.equal(1);
+					expect(errors[0].includes('got prop')).to.equal(true);
+					expect(serializeHtml(scratch)).to.equal('<h1>signal</h1>');
+				});
+		});
+
+		describe('warn for PropTypes on lazy()', () => {
+			it('should log the function name', () => {
+				const loader = Promise.resolve({ default: function MyLazyLoadedComponent() { return <div>Hi there</div>; } });
+				const FakeLazy = lazy(() => loader);
+				FakeLazy.propTypes = {};
+				const suspense = (
+					<Suspense fallback={<div>fallback...</div>} >
+						<FakeLazy />
+					</Suspense>
+				);
+				render(suspense, scratch);
+
+				return loader
+					.then(() => Promise.all(suspense._component._suspensions))
+					.then(() => {
+						expect(console.warn).to.be.calledTwice;
+						expect(warnings[1].includes('MyLazyLoadedComponent')).to.equal(true);
+					});
+			});
+
+			it('should log the displayName', () => {
+				function MyLazyLoadedComponent() { return <div>Hi there</div>; }
+				MyLazyLoadedComponent.displayName = 'HelloLazy';
+				const loader = Promise.resolve({ default: MyLazyLoadedComponent });
+				const FakeLazy = lazy(() => loader);
+				FakeLazy.propTypes = {};
+				const suspense = (
+					<Suspense fallback={<div>fallback...</div>} >
+						<FakeLazy />
+					</Suspense>
+				);
+				render(suspense, scratch);
+
+				return loader
+					.then(() => Promise.all(suspense._component._suspensions))
+					.then(() => {
+						expect(console.warn).to.be.calledTwice;
+						expect(warnings[1].includes('HelloLazy')).to.equal(true);
+					});
+			});
+
+			it('should not log a component if lazy throws', () => {
+				const loader = Promise.reject(new Error('Hey there'));
+				const FakeLazy = lazy(() => loader);
+				FakeLazy.propTypes = {};
+				render(
+					<Suspense fallback={<div>fallback...</div>} >
+						<FakeLazy />
+					</Suspense>,
+					scratch
+				);
+
+				return loader.catch(() => {
+					expect(console.warn).to.be.calledOnce;
+				});
+			});
+
+			it('should not log a component if lazy\'s loader throws', () => {
+				const FakeLazy = lazy(() => { throw new Error('Hello'); });
+				FakeLazy.propTypes = {};
+				let error;
+				try {
+					render(
+						<Suspense fallback={<div>fallback...</div>} >
+							<FakeLazy />
+						</Suspense>,
+						scratch
+					);
+				}
+				catch (e) {
+					error = e;
+				}
+
+				expect(console.warn).to.be.calledOnce;
+				expect(error).not.to.be.undefined;
+				expect(error.message).to.eql('Hello');
+			});
 		});
 	});
 });

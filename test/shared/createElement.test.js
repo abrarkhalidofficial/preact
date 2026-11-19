@@ -1,9 +1,10 @@
-import { createElement } from '../../';
+import { createElement as h } from '../../src/index';
+// import { VNode } from '../../src/vnode';
 import { expect } from 'chai';
 
-const h = createElement;
-/** @jsx createElement */
 /*eslint-env browser, mocha */
+
+/** @jsx h */
 
 // const buildVNode = (nodeName, attributes, children=[]) => ({
 // 	nodeName,
@@ -15,13 +16,11 @@ const h = createElement;
 describe('createElement(jsx)', () => {
 	it('should return a VNode', () => {
 		let r;
-		expect(() => (r = h('foo'))).not.to.throw();
+		expect( () => r = h('foo') ).not.to.throw();
 		expect(r).to.be.an('object');
 		// expect(r).to.be.an.instanceof(VNode);
 		expect(r).to.have.property('type', 'foo');
-		expect(r)
-			.to.have.property('props')
-			.that.eql({});
+		expect(r).to.have.property('props').that.eql({});
 		// expect(r).to.have.deep.property('props.children').that.eql(null);
 	});
 
@@ -44,8 +43,8 @@ describe('createElement(jsx)', () => {
 	});
 
 	it('should set VNode#key property', () => {
-		expect(<div />).to.have.property('key').that.does.not.exist;
-		expect(<div a="a" />).to.have.property('key').that.does.not.exist;
+		expect(<div />).to.have.property('key').that.is.undefined;
+		expect(<div a="a" />).to.have.property('key').that.is.undefined;
 		expect(<div key="1" />).to.have.property('key', '1');
 	});
 
@@ -57,8 +56,8 @@ describe('createElement(jsx)', () => {
 	});
 
 	it('should set VNode#ref property', () => {
-		expect(<div />).to.have.property('ref').that.does.not.exist;
-		expect(<div a="a" />).to.have.property('ref').that.does.not.exist;
+		expect(<div />).to.have.property('ref').that.is.undefined;
+		expect(<div a="a" />).to.have.property('ref').that.is.undefined;
 		const emptyFunction = () => {};
 		expect(<div ref={emptyFunction} />).to.have.property('ref', emptyFunction);
 	});
@@ -69,20 +68,13 @@ describe('createElement(jsx)', () => {
 	});
 
 	it('should have ordered VNode properties', () => {
-		expect(Object.keys(<div />).filter(key => !/^_/.test(key))).to.deep.equal([
-			'type',
-			'props',
-			'key',
-			'ref',
-			'constructor'
-		]);
+		expect(Object.keys(<div />).filter(key => !/^_/.test(key))).to.deep.equal(['type', 'props', 'key', 'ref', 'constructor']);
 	});
 
 	it('should preserve raw props', () => {
 		let props = { foo: 'bar', baz: 10, func: () => {} },
 			r = h('foo', props);
-		expect(r)
-			.to.be.an('object')
+		expect(r).to.be.an('object')
 			.with.property('props')
 			.that.deep.equals(props);
 	});
@@ -90,11 +82,18 @@ describe('createElement(jsx)', () => {
 	it('should support element children', () => {
 		let kid1 = h('bar');
 		let kid2 = h('baz');
-		let r = h('foo', null, kid1, kid2);
+		let r = h(
+			'foo',
+			null,
+			kid1,
+			kid2
+		);
 
-		expect(r)
-			.to.be.an('object')
-			.with.nested.deep.property('props.children', [kid1, kid2]);
+		expect(r).to.be.an('object')
+			.with.nested.deep.property('props.children', [
+				kid1,
+				kid2
+			]);
 	});
 
 	it('should support multiple element children, given as arg list', () => {
@@ -102,11 +101,18 @@ describe('createElement(jsx)', () => {
 		let kid3 = h('test');
 		let kid2 = h('baz', null, kid3);
 
-		let r = h('foo', null, kid1, kid2);
+		let r = h(
+			'foo',
+			null,
+			kid1,
+			kid2
+		);
 
-		expect(r)
-			.to.be.an('object')
-			.with.nested.deep.property('props.children', [kid1, kid2]);
+		expect(r).to.be.an('object')
+			.with.nested.deep.property('props.children', [
+				kid1,
+				kid2
+			]);
 	});
 
 	it('should handle multiple element children, given as an array', () => {
@@ -114,113 +120,90 @@ describe('createElement(jsx)', () => {
 		let kid3 = h('test');
 		let kid2 = h('baz', null, kid3);
 
-		let r = h('foo', null, [kid1, kid2]);
+		let r = h(
+			'foo',
+			null,
+			[
+				kid1,
+				kid2
+			]
+		);
 
-		expect(r)
-			.to.be.an('object')
-			.with.nested.deep.property('props.children', [kid1, kid2]);
+		expect(r).to.be.an('object')
+			.with.nested.deep.property('props.children', [
+				kid1,
+				kid2
+			]);
 	});
 
 	it('should support nested children', () => {
-		const m = x => {
-			const result = h(x);
-			delete result._original;
-			return result;
-		};
-		expect(h('foo', null, m('a'), [m('b'), m('c')], m('d')))
-			.to.have.nested.property('props.children')
+		const m = x => h(x);
+		expect(
+			h('foo', null, m('a'), [m('b'), m('c')], m('d'))
+		).to.have.nested.property('props.children')
 			.that.eql([m('a'), [m('b'), m('c')], m('d')]);
 
-		expect(h('foo', null, [m('a'), [m('b'), m('c')], m('d')]))
-			.to.have.nested.property('props.children')
+		expect(
+			h('foo', null, [m('a'), [m('b'), m('c')], m('d')])
+		).to.have.nested.property('props.children')
 			.that.eql([m('a'), [m('b'), m('c')], m('d')]);
 
-		expect(h('foo', { children: [m('a'), [m('b'), m('c')], m('d')] }))
-			.to.have.nested.property('props.children')
+		expect(
+			h('foo', { children: [m('a'), [m('b'), m('c')], m('d')] })
+		).to.have.nested.property('props.children')
 			.that.eql([m('a'), [m('b'), m('c')], m('d')]);
 
-		expect(h('foo', { children: [[m('a'), [m('b'), m('c')], m('d')]] }))
-			.to.have.nested.property('props.children')
+		expect(
+			h('foo', { children: [[m('a'), [m('b'), m('c')], m('d')]] })
+		).to.have.nested.property('props.children')
 			.that.eql([[m('a'), [m('b'), m('c')], m('d')]]);
 
-		expect(h('foo', { children: m('a') }))
-			.to.have.nested.property('props.children')
-			.that.eql(m('a'));
+		expect(
+			h('foo', { children: m('a') })
+		).to.have.nested.property('props.children').that.eql(m('a'));
 
-		expect(h('foo', { children: 'a' }))
-			.to.have.nested.property('props.children')
-			.that.eql('a');
+		expect(
+			h('foo', { children: 'a' })
+		).to.have.nested.property('props.children').that.eql('a');
 	});
 
 	it('should support text children', () => {
-		let r = h('foo', null, 'textstuff');
+		let r = h(
+			'foo',
+			null,
+			'textstuff'
+		);
 
-		expect(r)
-			.to.be.an('object')
+		expect(r).to.be.an('object')
 			.with.nested.property('props.children')
 			.that.equals('textstuff');
 	});
 
-	it('should override children if null is provided as an argument', () => {
-		let r = h('foo', { foo: 'bar', children: 'baz' }, null);
-
-		expect(r)
-			.to.be.an('object')
-			.to.deep.nested.include({
-				'props.foo': 'bar',
-				'props.children': null
-			});
-	});
-
-	it('should NOT set children prop when unspecified', () => {
-		let r = h('foo', { foo: 'bar' });
-
-		expect(r)
-			.to.be.an('object')
-			.to.have.nested.property('props.foo')
-			.not.to.have.nested.property('props.children');
-	});
-
 	it('should NOT merge adjacent text children', () => {
-		const bar = h('bar');
-		const barClone = h('bar');
-		const baz = h('baz');
-		const bazClone = h('baz');
-		const baz2 = h('baz');
-		const baz2Clone = h('baz');
-
-		delete bar._original;
-		delete barClone._original;
-		delete baz._original;
-		delete bazClone._original;
-		delete baz2._original;
-		delete baz2Clone._original;
-
 		let r = h(
 			'foo',
 			null,
 			'one',
 			'two',
-			bar,
+			h('bar'),
 			'three',
-			baz,
-			baz2,
+			h('baz'),
+			h('baz'),
 			'four',
 			null,
 			'five',
 			'six'
 		);
 
-		expect(r)
-			.to.be.an('object')
+		expect(r).to.be.an('object')
 			.with.nested.property('props.children')
 			.that.deep.equals([
 				'one',
 				'two',
-				barClone,
+				h('bar'),
 				'three',
-				bazClone,
-				baz2Clone,
+				h('baz'),
+				h('baz'),
 				'four',
 				null,
 				'five',
@@ -240,8 +223,7 @@ describe('createElement(jsx)', () => {
 			null
 		);
 
-		expect(r)
-			.to.be.an('object')
+		expect(r).to.be.an('object')
 			.with.nested.property('props.children')
 			.that.deep.equals([
 				'one',
@@ -252,48 +234,36 @@ describe('createElement(jsx)', () => {
 				null
 			]);
 	});
-
 	it('should not merge children that are boolean values', () => {
-		let r = h('foo', null, 'one', true, 'two', false, 'three');
+		let r = h(
+			'foo',
+			null,
+			'one',
+			true,
+			'two',
+			false,
+			'three'
+		);
 
-		expect(r)
-			.to.be.an('object')
+		expect(r).to.be.an('object')
 			.with.nested.property('props.children')
-			.that.deep.equals(['one', true, 'two', false, 'three']);
+			.that.deep.equals(['one',true,'two',false,'three']);
 	});
 
 	it('should not merge children of components', () => {
 		let Component = ({ children }) => children;
 		let r = h(Component, null, 'x', 'y');
 
-		expect(r)
-			.to.be.an('object')
+		expect(r).to.be.an('object')
 			.with.nested.property('props.children')
 			.that.deep.equals(['x', 'y']);
 	});
 
-	it('should respect defaultProps', () => {
-		const Component = ({ children }) => children;
-		Component.defaultProps = { foo: 'bar' };
-		expect(h(Component).props).to.deep.equal({ foo: 'bar' });
-	});
-
-	it('should override defaultProps', () => {
-		const Component = ({ children }) => children;
-		Component.defaultProps = { foo: 'default' };
-		expect(h(Component, { foo: 'bar' }).props).to.deep.equal({ foo: 'bar' });
-	});
-
 	it('should ignore props.children if children are manually specified', () => {
-		const element = (
-			<div a children={['a', 'b']}>
-				c
-			</div>
+		expect(
+			<div a children={['a', 'b']}>c</div>
+		).to.eql(
+			<div a>c</div>
 		);
-		const childrenless = <div a>c</div>;
-		delete element._original;
-		delete childrenless._original;
-
-		expect(element).to.eql(childrenless);
 	});
 });

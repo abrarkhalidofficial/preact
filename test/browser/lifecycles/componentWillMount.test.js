@@ -1,9 +1,10 @@
-import { createElement, render, Component } from 'preact';
+import { createElement, render, Component } from '../../../src/index';
 import { setupScratch, teardown } from '../../_util/helpers';
 
 /** @jsx createElement */
 
 describe('Lifecycle methods', () => {
+
 	/** @type {HTMLDivElement} */
 	let scratch;
 
